@@ -1,0 +1,12 @@
+services:
+  client_service:
+    build: machine_app
+    ports:
+      - '13002:8000'
+    volumes:
+      - './db_volume:/volume'
+    environment:
+      PYTHONUNBUFFERED: 1
+      SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_SQLITE_DATABASE_URI}
+    restart: on-failure
+

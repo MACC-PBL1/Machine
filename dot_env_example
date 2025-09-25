@@ -1,0 +1,9 @@
+
+# Nombre del proyecto para Docker Compose
+COMPOSE_PROJECT_NAME=client_service
+
+# Cadena de conexión a la base de datos (SQLite en volumen Docker)
+SQLALCHEMY_SQLITE_DATABASE_URI=sqlite+aiosqlite:////volume/clients.db
+
+# Versión de la aplicación
+APP_VERSION=1.0.0
