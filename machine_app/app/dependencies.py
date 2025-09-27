@@ -10,18 +10,29 @@ MY_MACHINE = None
 # Database #########################################################################################
 async def get_db():
     """Generates database sessions and closes them when finished."""
-    from app.sql.database import SessionLocal  # pylint: disable=import-outside-toplevel
+    from app.sql.database import SessionLocal
     logger.debug("Getting database SessionLocal")
     db = SessionLocal()
     try:
         yield db
-        await db.commit()
-    except:
-        await db.rollback()
     finally:
+        try:
+            await db.commit()
+        except Exception as exc:
+            logger.warning("Could not commit db: %s", exc)
+            await db.rollback()
         await db.close()
 
 
 
-# asyncio.create_task(get_machine())
-# asyncio.run(init_machine())
+# Machine #########################################################################################
+async def get_machine():
+    """Returns the machine object (creates it the first time its executed)."""
+    logger.debug("Getting machine")
+    global MY_MACHINE
+    if MY_MACHINE is None:
+        from app.business_logic.async_machine import Machine
+        from app.sql.database import SessionLocal
+        MY_MACHINE = await Machine.create(SessionLocal)
+    return MY_MACHINE
+

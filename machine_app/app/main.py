@@ -17,23 +17,24 @@ logger = logging.getLogger(__name__)
 APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 logger.info("Running app version %s", APP_VERSION)
 DESCRIPTION = """
-Microservicio de clientes.
+Microservicio de Machinees.
 """
 
 tag_metadata = [
     {
-        "name": "Client",
-        "description": "Operaciones de **crear**, **leer**, **actualizar** y **eliminar** clientes.",
-    }
+        "name": "Machine",
+        "description": "Endpoints related to machines",
+    },
 ]
 
 
+
 app = FastAPI(
-    title="Client Service",
+    title="Machine Service",
     description=DESCRIPTION,
     version=APP_VERSION,
     openapi_tags=[
-        {"name": "Client", "description": "Operaciones sobre clientes"},
+        {"name": "Machine", "description": "Operaciones sobre machine"},
     ],
 )
 
@@ -41,7 +42,7 @@ app = FastAPI(
 @app.on_event("startup")
 async def on_startup():
     """Se ejecuta al iniciar la app: crea tablas si no existen."""
-    logger.info("Iniciando Client Service")
+    logger.info("Iniciando Machine Service")
     async with database.engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
 
@@ -49,7 +50,7 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     """Se ejecuta al cerrar la app: libera recursos."""
-    logger.info("Cerrando Client Service")
+    logger.info("Cerrando Machine Service")
     await database.engine.dispose()
 
 

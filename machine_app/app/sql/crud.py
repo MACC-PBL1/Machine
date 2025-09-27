@@ -43,7 +43,7 @@ async def update_piece_manufacturing_date_to_now(db: AsyncSession, piece_id):
 
 async def get_piece_list(db: AsyncSession):
     """Load all the orders from the database."""
-    stmt = select(models.Piece).join(models.Piece.order)
+    stmt = select(models.Piece)
     pieces = await get_list_statement_result(db, stmt)
     return pieces
 
@@ -51,6 +51,17 @@ async def get_piece_list(db: AsyncSession):
 async def get_piece(db: AsyncSession, piece_id):
     """Load a piece from the database."""
     return await get_element_by_id(db, models.Piece, piece_id)
+
+async def create_piece_for_order(db: AsyncSession, piece_schema: schemas.PieceCreate) -> models.Piece:
+    """Create a new piece in the database with status=Queued."""
+    new_piece = models.Piece(
+        status=models.Piece.STATUS_QUEUED,
+        orderId=piece_schema.order if piece_schema.order is not None else None
+    )
+    db.add(new_piece)
+    await db.commit()
+    await db.refresh(new_piece)
+    return new_piece
 
 
 # Generic functions ################################################################################

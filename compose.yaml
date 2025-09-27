@@ -1,9 +1,11 @@
 services:
-  client_service:
+  monolithicapp:
     build: machine_app
     ports:
-      - '13002:8000'
+      - '13000:8000'
+      - '13443:8443'
     volumes:
+      #- './fastapi_app:/home/pyuser/code'
       - './db_volume:/volume'
     environment:
       PYTHONUNBUFFERED: 1

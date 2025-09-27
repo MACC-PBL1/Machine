@@ -1,0 +1,32 @@
+meta {
+  name: Request piece manufacturing
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:13000/machine/requestPiece
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "order": 1
+  }
+  
+}
+
+assert {
+  res.status: eq 200
+  res.body: isJson
+  res.body.order: isJson
+  res.body.id: isNumber
+  res.body.id: eq {{pieceId}}
+  res.body.manufacturing_date: isDefined
+  res.body.status: isNotEmpty
+}
+
+settings {
+  encodeUrl: true
+}

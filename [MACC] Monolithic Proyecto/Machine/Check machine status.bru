@@ -1,0 +1,21 @@
+meta {
+  name: Check machine status
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:13000/machine/status
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.body: isJson
+  res.body.queue: isArray
+  res.body.status: isNotEmpty
+}
+
+settings {
+  encodeUrl: true
+}

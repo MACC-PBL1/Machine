@@ -31,11 +31,17 @@ class BaseModel(Base):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 
-class Client(BaseModel):
-    """Client database table representation."""
-    __tablename__ = "client"
+class Piece(BaseModel):
+    """Piece database table representation."""
+    STATUS_CREATED = "Created"
+    STATUS_CANCELLED = "Cancelled"
+    STATUS_QUEUED = "Queued"
+    STATUS_MANUFACTURING = "Manufacturing"
+    STATUS_MANUFACTURED = "Manufactured"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
-    email = Column(String(150), unique=True, index=True, nullable=False)
-    phone = Column(String(20), nullable=True)
+    __tablename__ = "piece"
+    id = Column(Integer, primary_key=True)
+    manufacturing_date = Column(DateTime(timezone=True), server_default=None)
+    status = Column(String(256), default=STATUS_QUEUED)
+    orderId = Column(Integer, nullable=True)
+
