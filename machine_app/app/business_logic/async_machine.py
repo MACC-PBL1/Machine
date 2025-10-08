@@ -1,19 +1,22 @@
 # -*- coding: utf-8 -*-
-"""Simulation of a machine that manufactures pieces."""
+"""Simulation of a machine that manufactures pieces, publishing events to RabbitMQ."""
 import asyncio
 import logging
 from random import randint
+import pika
+from pika.exchange_type import ExchangeType
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import ProgrammingError, OperationalError
 from app.sql import crud
 from app.sql.models import Piece
-
+import time
+from pika.exceptions import AMQPConnectionError
 logger = logging.getLogger(__name__)
 logger.debug("Machine logger set.")
 
 
 class Machine:
-    """Piece manufacturing machine simulator."""
+    """Piece manufacturing machine simulator that publishes events to RabbitMQ."""
     STATUS_WAITING = "Waiting"
     STATUS_CHANGING_PIECE = "Changing Piece"
     STATUS_WORKING = "Working"
@@ -23,12 +26,36 @@ class Machine:
     status = STATUS_WAITING
 
     def __init__(self, session_factory):
-        # Session factory is injected to reduce coupling/dependencies
+        """Initialize machine and connect to RabbitMQ."""
         self._session_factory = session_factory
+
+        # --- RabbitMQ setup ---
+        try:
+            self._amqp_url = "amqp://guest:guest@localhost:5672/%2F"
+            self._exchange = "machine.events"
+            for i in range(10):
+                try:
+                    self._connection = pika.BlockingConnection(
+                        pika.ConnectionParameters('rabbitmq', 5672, '/', pika.PlainCredentials('guest', 'guest'))
+                    )
+                    break
+                except AMQPConnectionError:
+                    print("RabbitMQ not ready, retrying...")
+                    time.sleep(2)
+            else:
+                logger.error("Failed to connect to RabbitMQ after several attempts.")
+            self._channel = self._connection.channel()
+
+            self._channel.exchange_declare(exchange=self._exchange, exchange_type=ExchangeType.topic)
+            logger.info("Connected to RabbitMQ and exchange declared.")
+        except Exception as e:
+            logger.error(f"Could not connect to RabbitMQ: {e}")
+            self._connection = None
+            self._channel = None
 
     @classmethod
     async def create(cls, session_factory):
-        """Machine constructor: loads manufacturing/queued pieces and starts simulation."""
+        """Initialize machine asynchronously and load queued pieces."""
         logger.info("AsyncMachine initialized")
         self = Machine(session_factory)
         asyncio.create_task(self.manufacturing_coroutine())
@@ -37,15 +64,12 @@ class Machine:
 
     async def reload_queue_from_database(self):
         """Reload queue from database, to reload data when the system has been rebooted."""
-        # Load the piece that was being manufactured
         async with self._session_factory() as db:
             manufacturing_piece = await Machine.get_manufacturing_piece(db)
             if manufacturing_piece:
                 await self.add_piece_to_queue(manufacturing_piece)
 
-            # Load the pieces that were in the queue
             queued_pieces = await Machine.get_queued_pieces(db)
-
             if queued_pieces:
                 await self.add_pieces_to_queue(queued_pieces)
             await db.close()
@@ -54,16 +78,11 @@ class Machine:
     async def get_manufacturing_piece(db: AsyncSession):
         """Gets the manufacturing piece from the database."""
         try:
-            manufacturing_pieces = await crud.get_piece_list_by_status(
-                db,
-                Piece.STATUS_MANUFACTURING
-            )
+            manufacturing_pieces = await crud.get_piece_list_by_status(db, Piece.STATUS_MANUFACTURING)
             if manufacturing_pieces and manufacturing_pieces[0]:
                 return manufacturing_pieces[0]
         except (ProgrammingError, OperationalError):
-            logger.error(
-                "Error getting Manufacturing Piece at startup. It may be the first execution"
-            )
+            logger.error("Error getting Manufacturing Piece at startup.")
         return None
 
     @staticmethod
@@ -73,7 +92,7 @@ class Machine:
             queued_pieces = await crud.get_piece_list_by_status(db, Piece.STATUS_QUEUED)
             return queued_pieces
         except (ProgrammingError, OperationalError):
-            logger.error("Error getting Queued Pieces at startup. It may be the first execution")
+            logger.error("Error getting Queued Pieces at startup.")
             return []
 
     async def manufacturing_coroutine(self) -> None:
@@ -87,101 +106,67 @@ class Machine:
 
     async def create_piece(self, piece_id: int):
         """Simulates piece manufacturing."""
-        # Machine and piece status updated during manufacturing
         async with self._session_factory() as db:
             await self.update_working_piece(piece_id, db)
-            await self.working_piece_to_manufacturing(db)  # Update Machine&piece status
+            await self.working_piece_to_manufacturing(db)
             await db.close()
 
-        await asyncio.sleep(randint(5, 20))  # Simulates time spent manufacturing
+        self.publish_event("piece.started", {"piece_id": piece_id})
+
+        await asyncio.sleep(randint(5, 20))
 
         async with self._session_factory() as db:
-            await self.working_piece_to_finished(db)  # Update Machine&Piece status
+            await self.working_piece_to_finished(db)
             await db.close()
+
+        self.publish_event("piece.finished", {"piece_id": piece_id})
 
         self.working_piece = None
 
+    def publish_event(self, topic: str, payload: dict):
+        """Publica un mensaje (evento) a RabbitMQ usando 'topic'."""
+        if not self._channel:
+            logger.warning(f"Cannot publish event {topic}: no RabbitMQ connection.")
+            return
+        try:
+            import json
+            body = json.dumps(payload)
+            self._channel.basic_publish(
+                exchange=self._exchange,
+                routing_key=topic,
+                body=body.encode("utf-8")
+            )
+            logger.info(f"Published event '{topic}': {body}")
+        except Exception as e:
+            logger.error(f"Error publishing event {topic}: {e}")
+
     async def update_working_piece(self, piece_id: int, db: AsyncSession):
-        """Loads a piece for the given id and updates the working piece."""
-        logger.debug("Updating working piece to %i", piece_id)
         piece = await crud.get_piece(db, piece_id)
         self.working_piece = piece.as_dict()
 
     async def working_piece_to_manufacturing(self, db: AsyncSession):
-        """Updates piece status to manufacturing."""
         self.status = Machine.STATUS_WORKING
         try:
             await crud.update_piece_status(db, self.working_piece['id'], Piece.STATUS_MANUFACTURING)
-        except Exception as exc:  # @ToDo: To general exception
-            logger.error("Could not update working piece status to manufacturing: %s", exc)
+        except Exception as exc:
+            logger.error(f"Could not update status to manufacturing: {exc}")
 
     async def working_piece_to_finished(self, db: AsyncSession):
-        """Updates piece status to finished and order if all pieces are finished."""
         logger.debug("Working piece finished.")
         self.status = Machine.STATUS_CHANGING_PIECE
-
-        piece = await crud.update_piece_status(
-            db,
-            self.working_piece['id'],
-            Piece.STATUS_MANUFACTURED
-        )
+        piece = await crud.update_piece_status(db, self.working_piece['id'], Piece.STATUS_MANUFACTURED)
         self.working_piece = piece.as_dict()
-
-        piece = await crud.update_piece_manufacturing_date_to_now(
-            db,
-            self.working_piece['id']
-        )
+        piece = await crud.update_piece_manufacturing_date_to_now(db, self.working_piece['id'])
         self.working_piece = piece.as_dict()
-        #Comprobar si el order esta terminado, si esta terminado -->
-        #Llamar a update_order_status para guardar el orde en base de datos
-        return "Finished"   
+        return "Finished"
 
     async def add_pieces_to_queue(self, pieces):
-        """Adds a list of pieces to the queue and updates their status."""
-        logger.debug("Adding %i pieces to queue", len(pieces))
         for piece in pieces:
             await self.add_piece_to_queue(piece)
 
     async def add_piece_to_queue(self, piece):
-        """Adds the given piece from the queue."""
         await self.__manufacturing_queue.put(piece.id)
 
-    async def remove_pieces_from_queue(self, pieces):
-        """Adds a list of pieces to the queue and updates their status."""
-        logger.debug("Removing %i pieces from queue", len(pieces))
-        for piece in pieces:
-            await self.remove_piece_from_queue(piece)
-
-    async def remove_piece_from_queue(self, piece) -> bool:
-        """Removes the given piece from the queue."""
-        logger.info("Removing piece %i", piece.id)
-        if self.working_piece == piece.id:
-            logger.warning(
-                "Piece %i is being manufactured, cannot remove from queue\n\n",
-                piece.id
-            )
-            return False
-
-        item_list = []
-        removed = False
-        # Empty the list
-        while not self.__manufacturing_queue.empty():
-            item_list.append(self.__manufacturing_queue.get_nowait())
-
-        # Fill the list with all items but *piece_id*
-        for item in item_list:
-            if item != piece.id:
-                self.__manufacturing_queue.put_nowait(item)
-            else:
-                logging.debug("Piece %i removed from queue.", piece.id)
-                removed = True
-
-        if not removed:
-            logger.warning("Piece %i not found in the queue.", piece.id)
-
-        return removed
-
     async def list_queued_pieces(self):
-        """Get queued piece ids as list."""
         piece_list = list(self.__manufacturing_queue.__dict__['_queue'])
         return piece_list
