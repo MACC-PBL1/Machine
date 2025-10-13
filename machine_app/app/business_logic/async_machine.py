@@ -13,7 +13,7 @@ import time
 from pika.exceptions import AMQPConnectionError
 logger = logging.getLogger(__name__)
 logger.debug("Machine logger set.")
-
+import ssl
 
 class Machine:
     """Piece manufacturing machine simulator that publishes events to RabbitMQ."""
@@ -33,21 +33,30 @@ class Machine:
         try:
             self._amqp_url = "amqp://guest:guest@localhost:5672/%2F"
             self._exchange = "machine.events"
+            context = ssl.create_default_context(cafile="/app/ssl/ca_cert.pem")
+            
             for i in range(10):
                 try:
                     self._connection = pika.BlockingConnection(
-                        pika.ConnectionParameters('rabbitmq', 5672, '/', pika.PlainCredentials('guest', 'guest'))
+                        pika.ConnectionParameters(
+                            host='rabbitmq',
+                            port=5671,
+                            virtual_host='/',
+                            credentials=pika.PlainCredentials('guest', 'guest'),
+                            ssl_options=pika.SSLOptions(context)
+                        )
                     )
                     break
-                except AMQPConnectionError:
+                except pika.exceptions.AMQPConnectionError:
                     print("RabbitMQ not ready, retrying...")
                     time.sleep(2)
             else:
                 logger.error("Failed to connect to RabbitMQ after several attempts.")
+                
             self._channel = self._connection.channel()
-
             self._channel.exchange_declare(exchange=self._exchange, exchange_type=ExchangeType.topic)
-            logger.info("Connected to RabbitMQ and exchange declared.")
+            logger.info("Connected to RabbitMQ over TLS and exchange declared.")
+
         except Exception as e:
             logger.error(f"Could not connect to RabbitMQ: {e}")
             self._connection = None
