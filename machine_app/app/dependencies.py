@@ -1,38 +1,15 @@
-# -*- coding: utf-8 -*-
-"""Application dependency injector."""
-import logging
+# machine/dependencies.py
+from microservice_chassis.db import get_session
+from app.business_logic.async_machine import Machine
+from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+async def get_db() -> AsyncSession:
+    async for session in get_session():
+        yield session
 
-MY_MACHINE = None
-
-
-# Database #########################################################################################
-async def get_db():
-    """Generates database sessions and closes them when finished."""
-    from app.sql.database import SessionLocal
-    logger.debug("Getting database SessionLocal")
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        try:
-            await db.commit()
-        except Exception as exc:
-            logger.warning("Could not commit db: %s", exc)
-            await db.rollback()
-        await db.close()
-
-
-
-# Machine #########################################################################################
-async def get_machine():
-    """Returns the machine object (creates it the first time its executed)."""
-    logger.debug("Getting machine")
-    global MY_MACHINE
-    if MY_MACHINE is None:
-        from app.business_logic.async_machine import Machine
-        from app.sql.database import SessionLocal
-        MY_MACHINE = await Machine.create(SessionLocal)
-    return MY_MACHINE
-
+async def get_machine() -> Machine:
+    """Singleton pattern for machine instance."""
+    if not hasattr(get_machine, "_instance"):
+        from microservice_chassis.db import AsyncSessionLocal
+        get_machine._instance = await Machine.create(AsyncSessionLocal)
+    return get_machine._instance

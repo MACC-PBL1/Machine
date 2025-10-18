@@ -1,107 +1,63 @@
-# -*- coding: utf-8 -*-
-"""FastAPI router definitions for Machine Service."""
-import logging
-from typing import List
+# machine/routes.py
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
+from microservice_chassis.db import get_session
+from microservice_chassis.utils import raise_and_log_error
 from app.business_logic.async_machine import Machine
-from app.dependencies import get_db, get_machine
-from app.sql import crud
-from ..sql import schemas
 from app.sql.models import Piece as PieceModel
+from app.sql.schemas import Piece, PieceCreate, MachineStatusResponse, Message
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/machine", tags=["Machine"])
 
-# ------------------------------------------------------------------------------------
+# -----------------------------
 # Health check
-# ------------------------------------------------------------------------------------
-@router.get(
-    "/",
-    summary="Health check endpoint",
-    response_model=schemas.Message,
-)
+# -----------------------------
+@router.get("/", summary="Health check endpoint", response_model=Message)
 async def health_check():
-    """Endpoint to check if the Machine Service is running."""
-    logger.debug("GET '/' endpoint called.")
     return {"detail": "OK"}
 
-# Machine ##########################################################################################
-@router.get(
-    "/status",
-    summary="Retrieve machine status",
-    response_model=schemas.MachineStatusResponse,
-    tags=['Machine']
-)
-async def machine_status(
-        my_machine: Machine = Depends(get_machine)
-):
-    """Retrieve machine status"""
-    logger.debug("GET '/machine/status' endpoint called.")
-    working_piece_id = None
-    if my_machine.working_piece is not None:
-        working_piece_id = my_machine.working_piece['id']
-
-    queue = await my_machine.list_queued_pieces()
-
-    return schemas.MachineStatusResponse(
-        status=my_machine.status,
+# -----------------------------
+# Machine status
+# -----------------------------
+@router.get("/status", summary="Retrieve machine status", response_model=MachineStatusResponse)
+async def machine_status(machine: Machine = Depends(Machine.create)):
+    queue = await machine.list_queued_pieces()
+    working_piece_id = machine.working_piece["id"] if machine.working_piece else None
+    return MachineStatusResponse(
+        status=machine.status,
         working_piece=working_piece_id,
         queue=queue
     )
 
+# -----------------------------
+# Pieces endpoints
+# -----------------------------
+@router.get("/piece", response_model=List[Piece], summary="Retrieve piece list")
+async def get_piece_list(db: AsyncSession = Depends(get_session)):
+    from app.sql.models import Piece as PieceModel
+    from microservice_chassis.db import get_list
+    return await get_list(db, PieceModel)
 
-# ------------------------------------------------------------------------------------
-# Pieces
-# ------------------------------------------------------------------------------------
-@router.get(
-    "/piece",
-    response_model=List[schemas.Piece],
-    summary="retrieve piece list",
-    tags=["Piece", "List"]
-)
-async def get_piece_list(
-        db: AsyncSession = Depends(get_db)
-):
-    """Retrieve the list of pieces."""
-    logger.debug("GET '/piece' endpoint called.")
-    return await crud.get_piece_list(db)
-
-
-@router.get(
-    "/piece/{piece_id}",
-    summary="Retrieve single piece by id",
-    response_model=schemas.Piece,
-    tags=['Piece']
-)
-async def get_single_piece(piece_id: int, db: AsyncSession = Depends(get_db)):
-    piece = await crud.get_piece(db, piece_id)
+@router.get("/piece/{piece_id}", response_model=Piece, summary="Retrieve single piece by id")
+async def get_piece(piece_id: int, db: AsyncSession = Depends(get_session)):
+    from app.sql.models import Piece as PieceModel
+    from microservice_chassis.db import get_element_by_id
+    piece = await get_element_by_id(db, PieceModel, piece_id)
     if not piece:
         raise HTTPException(status_code=404, detail=f"Piece {piece_id} not found")
     return piece.as_dict()
 
-@router.post(
-    "/requestPiece",
-    response_model=schemas.Piece,
-    summary="Request piece manufacturing",
-    status_code=status.HTTP_201_CREATED,
-    tags=["Machine"]
-)
+@router.post("/requestPiece", response_model=Piece, status_code=status.HTTP_201_CREATED)
 async def request_piece_manufacturing(
-    piece_schema: schemas.PieceCreate,
-    db: AsyncSession = Depends(get_db),
-    machine: "Machine" = Depends(get_machine)
+    piece_schema: PieceCreate,
+    machine: Machine = Depends(Machine.create),
+    db: AsyncSession = Depends(get_session)
 ):
-    try:
-        db_piece = await crud.create_piece_for_order(db, piece_schema)
-
-        await machine.add_piece_to_queue(db_piece)
-
-        return db_piece
-
-    except Exception as exc:
-        logger.error("Error requesting piece manufacturing: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Error requesting piece manufacturing: {exc}"
-        )
+    from app.sql.models import Piece as PieceModel
+    new_piece = PieceModel(status=PieceModel.STATUS_QUEUED, orderId=piece_schema.order)
+    db.add(new_piece)
+    await db.commit()
+    await db.refresh(new_piece)
+    await Machine.add_piece_to_queue(new_piece)
+    return new_piece
