@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI
-from microservice_chassis.routes import router as main_router
 from microservice_chassis.db import Base, engine
+from app.routers import main_router
 
 # Configure logging
 logging.basicConfig(
@@ -29,5 +29,4 @@ async def on_shutdown():
     logger.info("Shutting down Machine Service")
     await engine.dispose()
 
-# Include main router
-app.include_router(main_router)
+app.include_router(main_router.router)

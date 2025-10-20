@@ -2,12 +2,13 @@ import asyncio
 from random import randint
 from sqlalchemy.ext.asyncio import AsyncSession
 from microservice_chassis.db import get_element_by_id, get_list_statement_result
-from microservice_chassis.utils import raise_and_log_error
+from microservice_chassis.errors import raise_and_log_error
 from microservice_chassis.events import EventPublisher, EventSubscriber
 from microservice_chassis.config import settings
 from microservice_chassis.utils import time_utils
 from app.sql.models import Piece
 import logging
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,9 @@ class Machine:
     async def create(cls, session_factory):
         self = Machine()
         self._session_factory = session_factory
+        # connect publisher (sync) — deja esto como estaba
         self.publisher.connect()
+        # reload queue from DB (async)
         await self._reload_queue_from_database()
         asyncio.create_task(self._manufacturing_loop())
         asyncio.create_task(self._listen_to_requests())
@@ -49,14 +52,17 @@ class Machine:
 
     async def _reload_queue_from_database(self):
         async with self._session_factory() as db:
-            manufacturing = await get_list_statement_result(
-                db, db.select(Piece).where(Piece.status == Piece.STATUS_MANUFACTURING)
-            )
+            # --- Manufacturing pieces
+            stmt_manuf = select(Piece).where(Piece.status == Piece.STATUS_MANUFACTURING)
+            manufacturing = await get_list_statement_result(db, stmt_manuf)
+            logger.debug("Found manufacturing pieces: %s", [p.id for p in manufacturing])
             for p in manufacturing:
                 await self.add_piece_to_queue(p)
-            queued = await get_list_statement_result(
-                db, db.select(Piece).where(Piece.status == Piece.STATUS_QUEUED)
-            )
+
+            # --- Queued pieces
+            stmt_queued = select(Piece).where(Piece.status == Piece.STATUS_QUEUED)
+            queued = await get_list_statement_result(db, stmt_queued)
+            logger.debug("Found queued pieces: %s", [p.id for p in queued])
             for p in queued:
                 await self.add_piece_to_queue(p)
 
