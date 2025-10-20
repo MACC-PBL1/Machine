@@ -1,5 +1,4 @@
-# machine/sql/models.py
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
 from microservice_chassis.db import BaseModel
 
 class Piece(BaseModel):
@@ -12,6 +11,6 @@ class Piece(BaseModel):
     STATUS_MANUFACTURED = "Manufactured"
 
     id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, nullable=False)
     manufacturing_date = Column(DateTime(timezone=True), server_default=None)
     status = Column(String(256), default=STATUS_QUEUED)
-    orderId = Column(Integer, nullable=True)

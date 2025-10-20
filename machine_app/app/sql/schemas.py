@@ -11,7 +11,7 @@ class PieceBase(BaseModel):
     status: str = "Queued"
 
 class Piece(PieceBase):
-    orderId: Optional[int]
+    order_id: Optional[int]
 
     class Config:
         orm_mode = True
@@ -22,5 +22,6 @@ class PieceCreate(BaseModel):
 
 class MachineStatusResponse(BaseModel):
     status: str
+    order_id: Optional[int]
     working_piece: Optional[int]
     queue: List[int]
