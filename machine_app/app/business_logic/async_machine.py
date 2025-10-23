@@ -5,7 +5,7 @@ from microservice_chassis.db import get_element_by_id, get_list_statement_result
 from microservice_chassis.errors import raise_and_log_error
 from microservice_chassis.events import EventPublisher, EventSubscriber
 from microservice_chassis.config import settings
-from microservice_chassis.utils import time_utils
+from datetime import datetime, timezone
 from app.sql.models import Piece
 import logging
 from sqlalchemy import select
@@ -22,8 +22,9 @@ class Machine:
         self.working_piece = None
         self._queue = asyncio.Queue()
         self._stop_machine = False
-        self.publisher = EventPublisher(exchange=f"{settings.SERVICE_NAME}.events")
-        self.subscriber = EventSubscriber(exchange=f"{settings.SERVICE_NAME}.events")
+        self.publisher = EventPublisher(exchange="factory.events")
+        self.subscriber = EventSubscriber(exchange="factory.events")
+
 
     @classmethod
     async def create(cls, session_factory):
@@ -105,7 +106,7 @@ class Machine:
         piece = await get_element_by_id(db, Piece, piece_id)
         if not piece:
             raise_and_log_error(404, f"Piece {piece_id} not found")
-        piece.manufacturing_date = time_utils.utcnow()
+        piece.manufacturing_date = datetime.now(timezone.utc)
         piece.status = status
         await db.commit()
         await db.refresh(piece)
