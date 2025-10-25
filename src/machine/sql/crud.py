@@ -3,7 +3,6 @@
 from .models import PieceModel
 from chassis.sql import (
     get_list_statement_result,
-    get_element_by_id,
     get_element_statement_result,
 
 )

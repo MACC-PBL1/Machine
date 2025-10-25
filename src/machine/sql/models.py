@@ -1,7 +1,6 @@
 from chassis.sql import BaseModel
 from datetime import datetime
 from sqlalchemy import (
-    # Column, 
     DateTime,
     Integer, 
     String, 

@@ -1,6 +1,9 @@
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
+from pydantic import BaseModel
+from typing import (
+    Optional, 
+    List,
+)
 
 class Message(BaseModel):
     detail: str = "Operation successful"
