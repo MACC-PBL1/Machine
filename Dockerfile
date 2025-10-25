@@ -21,7 +21,7 @@ COPY --chown=pyuser:pyuser . /home/pyuser/machine
 
 WORKDIR /home/pyuser/machine
 
-RUN pip install .
+RUN pip install Machine/.
 
 # Run the application
 ENTRYPOINT ["machine"]
