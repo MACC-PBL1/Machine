@@ -17,9 +17,9 @@ USER 1000
 ENV PATH="/home/pyuser/.local/bin:$PATH"
 
 # Copy the app to the container
-COPY --chown=pyuser:pyuser . /home/pyuser/payment
+COPY --chown=pyuser:pyuser . /home/pyuser/machine
 
-WORKDIR /home/pyuser/payment
+WORKDIR /home/pyuser/machine
 
 RUN pip install .
 

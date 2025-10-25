@@ -13,10 +13,12 @@ from chassis.sql import (
     get_list_statement_result, 
     get_element_statement_result,
 )
+from chassis.security.jwt_utils import verify_jwt
 from fastapi import (
     APIRouter, 
     Depends, 
     HTTPException,
+    Request,
     status
 )
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,8 +39,22 @@ Router = APIRouter(prefix="/machine", tags=["Machine"])
     summary="Estado actual de la máquina"
 )
 async def get_machine_status(
+    request: Request,
     machine: Machine = Depends(get_machine)
-):
+):  
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
+
+    token = auth_header.split(" ")[1]
+    try:
+        verify_jwt(token, require_admin=True)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    
     queue = await machine.list_queued_pieces()
     working_piece_id = machine.working_piece["id"] if machine.working_piece else None
     order_id = machine.working_piece["order_id"] if machine.working_piece else None
@@ -57,7 +73,19 @@ async def get_machine_status(
     response_model=List[Piece], 
     summary="Lista de todas las piezas"
 )
-async def get_all_pieces(db: AsyncSession = Depends(get_db)):
+async def get_all_pieces(request: Request, db: AsyncSession = Depends(get_db)):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
+
+    token = auth_header.split(" ")[1]
+    try:
+        verify_jwt(token, require_admin=True)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     return await get_list(db, PieceModel)
 
 # --------------------------------------------------
@@ -69,9 +97,22 @@ async def get_all_pieces(db: AsyncSession = Depends(get_db)):
     summary="Lista de piezas por order_id"
 )
 async def get_pieces_by_order(
+    request: Request,
     order_id: int, 
     db: AsyncSession = Depends(get_db)
 ):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
+
+    token = auth_header.split(" ")[1]
+    try:
+        verify_jwt(token, require_admin=True)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     result = await get_list_statement_result(
         db=db,
         stmt=select(PieceModel).where(PieceModel.order_id == order_id)
@@ -87,10 +128,23 @@ async def get_pieces_by_order(
     summary="Información de una pieza específica"
 )
 async def get_piece_detail(
+    request: Request,
     order_id: int, 
     piece_id: int, 
     db: AsyncSession = Depends(get_db)
 ):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
+
+    token = auth_header.split(" ")[1]
+    try:
+        verify_jwt(token, require_admin=True)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     piece: Optional[PieceModel] = await get_element_statement_result(
         db=db,
         stmt=select(PieceModel)
