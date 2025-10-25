@@ -14,7 +14,6 @@ class Piece(PieceBase):
     order_id: Optional[int]
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 class PieceCreate(BaseModel):
