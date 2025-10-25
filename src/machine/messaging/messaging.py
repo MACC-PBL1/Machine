@@ -1,9 +1,15 @@
+import os
 from ..business_logic import get_machine
-from .global_vars import LISTENING_QUEUES
+from .global_vars import LISTENING_QUEUES, PUBLIC_KEY_PATH
 from chassis.messaging import (
     MessageType,
     register_queue_handler
 )
+import logging
+
+logger = logging.getLogger(__name__)
+
+PUBLIC_KEY = None
 
 @register_queue_handler(LISTENING_QUEUES["request_piece"])
 async def request_piece(message: MessageType) -> None:
@@ -20,4 +26,15 @@ async def request_piece(message: MessageType) -> None:
 
 @register_queue_handler(LISTENING_QUEUES["public_key"])
 async def public_key(message: MessageType) -> None:
-    pass
+    global PUBLIC_KEY
+    
+    assert (data := message.get("data")), "'data' field should be present."
+    assert (new_public_key := data.get("public_key")), "'public_key' field should be present."
+    
+    logger.info("Received event 'client.client_public_key_queue': %s", message)
+    
+    PUBLIC_KEY = new_public_key
+    
+    os.makedirs(os.path.dirname(PUBLIC_KEY_PATH), exist_ok=True)
+    with open(PUBLIC_KEY_PATH, "w") as f:
+        f.write(new_public_key)

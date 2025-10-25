@@ -24,5 +24,7 @@ PUBLISHING_QUEUES: Dict[LiteralString, LiteralString] = {
 }
 LISTENING_QUEUES: Dict[LiteralString, LiteralString] = {
     "request_piece": "machine.request_piece",
-    "public_key": "client.public_key",
+    "public_key": "client.client_public_key_queue",
 }
+
+PUBLIC_KEY_PATH = "/tmp/keys/public.pem"
