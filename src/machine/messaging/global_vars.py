@@ -2,7 +2,8 @@ from chassis.messaging import RabbitMQConfig
 from pathlib import Path
 from typing import (
     Dict,
-    LiteralString
+    LiteralString,
+    Optional,
 )
 import os
 
@@ -27,4 +28,4 @@ LISTENING_QUEUES: Dict[LiteralString, LiteralString] = {
     "public_key": "client.client_public_key_queue",
 }
 
-PUBLIC_KEY_PATH = "/tmp/keys/public.pem"
+PUBLIC_KEY: Optional[str] = None

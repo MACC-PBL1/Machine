@@ -1,5 +1,8 @@
 from ..sql import create_piece
-from .global_vars import LISTENING_QUEUES
+from .global_vars import (
+    PUBLIC_KEY,
+    LISTENING_QUEUES
+)
 from chassis.messaging import (
     MessageType,
     register_queue_handler
@@ -8,8 +11,6 @@ from chassis.sql import SessionLocal
 import logging
 
 logger = logging.getLogger(__name__)
-
-PUBLIC_KEY = None
 
 @register_queue_handler(LISTENING_QUEUES["request_piece"])
 async def request_piece(message: MessageType) -> None:
@@ -37,3 +38,4 @@ def public_key(message: MessageType) -> None:
     global PUBLIC_KEY
     assert (public_key := message.get("public_key")) is not None, "'public_key' field should be present."
     PUBLIC_KEY = str(public_key)
+    logging.info(f"Public key updated: {PUBLIC_KEY}")
