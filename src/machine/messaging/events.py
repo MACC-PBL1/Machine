@@ -1,8 +1,5 @@
 from ..sql import create_piece
-from .global_vars import (
-    LISTENING_QUEUES, 
-    PUBLIC_KEY_PATH
-)
+from .global_vars import LISTENING_QUEUES
 from chassis.messaging import (
     MessageType,
     register_queue_handler
