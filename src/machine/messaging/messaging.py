@@ -1,5 +1,3 @@
-import os
-from ..business_logic import get_machine
 from ..sql import create_piece
 from .global_vars import (
     LISTENING_QUEUES, 
@@ -18,6 +16,8 @@ PUBLIC_KEY = None
 
 @register_queue_handler(LISTENING_QUEUES["request_piece"])
 async def request_piece(message: MessageType) -> None:
+    from ..business_logic import get_machine
+
     assert (order_id := message.get("order_id")), "'order_id' field should be present."
     assert (amount := message.get("amount")), "'amount' field should be present."
 
