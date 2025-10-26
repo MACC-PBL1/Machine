@@ -17,7 +17,7 @@ USER 1000
 ENV PATH="/home/pyuser/.local/bin:$PATH"
 
 # Copy the app to the container
-COPY --chown=pyuser:pyuser Machine /home/pyuser/machine
+COPY --chown=pyuser:pyuser . /home/pyuser/machine
 
 WORKDIR /home/pyuser/machine
 
