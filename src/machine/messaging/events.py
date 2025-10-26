@@ -30,7 +30,7 @@ async def request_piece(message: MessageType) -> None:
         await machine.add_piece_to_queue(piece_id, order_id)
 
 @register_queue_handler(
-    queue=LISTENING_QUEUES["public_key"],
+    queue=LISTENING_QUEUES["machine_public_key"],
     exchange="public_key",
     exchange_type="fanout"
 )
