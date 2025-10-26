@@ -31,17 +31,12 @@ async def request_piece(message: MessageType) -> None:
             create_piece(db, piece_id, order_id)
         await machine.add_piece_to_queue(piece_id, order_id)
 
-@register_queue_handler(LISTENING_QUEUES["public_key"])
-async def public_key(message: MessageType) -> None:
+@register_queue_handler(
+    queue=LISTENING_QUEUES["public_key"],
+    exchange="public_key",
+    exchange_type="fanout"
+)
+def public_key(message: MessageType) -> None:
     global PUBLIC_KEY
-    
-    assert (data := message.get("data")), "'data' field should be present."
-    assert (new_public_key := data.get("public_key")), "'public_key' field should be present."
-    
-    logger.info("Received event 'client.client_public_key_queue': %s", message)
-    
-    PUBLIC_KEY = new_public_key
-    
-    os.makedirs(os.path.dirname(PUBLIC_KEY_PATH), exist_ok=True)
-    with open(PUBLIC_KEY_PATH, "w") as f:
-        f.write(new_public_key)
+    assert (public_key := message.get("public_key")) is not None, "'public_key' field should be present."
+    PUBLIC_KEY = str(public_key)
