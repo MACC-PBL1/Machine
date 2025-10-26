@@ -18,6 +18,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Piece functions ##################################################################################
+def create_piece(
+    db: AsyncSession,
+    piece_id: int, 
+    order_id: int
+) -> None:
+    db.add(PieceModel(
+        id=piece_id,
+        order_id=order_id,
+        manufacturing_date=datetime.now()
+    ))
+
 async def get_piece(
     db: AsyncSession, 
     piece_id: int,

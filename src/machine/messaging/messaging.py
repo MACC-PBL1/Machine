@@ -1,10 +1,15 @@
 import os
 from ..business_logic import get_machine
-from .global_vars import LISTENING_QUEUES, PUBLIC_KEY_PATH
+from ..sql import create_piece
+from .global_vars import (
+    LISTENING_QUEUES, 
+    PUBLIC_KEY_PATH
+)
 from chassis.messaging import (
     MessageType,
     register_queue_handler
 )
+from chassis.sql import SessionLocal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,6 +27,8 @@ async def request_piece(message: MessageType) -> None:
     machine = await get_machine()
 
     for piece_id in range(amount):
+        async with SessionLocal() as db:
+            create_piece(db, piece_id, order_id)
         await machine.add_piece_to_queue(piece_id, order_id)
 
 @register_queue_handler(LISTENING_QUEUES["public_key"])

@@ -202,13 +202,6 @@ class Machine:
                 "piece_id": self.working_piece["piece_id"],
             })
 
-        # if await Machine._is_order_finished(self.working_piece['order_id'], db):
-        #     await crud.update_order_status(
-        #         db,
-        #         self.working_piece['order_id'],
-        #         Order.STATUS_FINISHED
-        #     )
-
     @staticmethod
     async def _is_order_finished(
         order_id: int, 

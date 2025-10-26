@@ -1,5 +1,6 @@
 from .models import PieceModel
 from .crud import (
+    create_piece,
     get_piece,
     get_piece_list,
     get_piece_list_by_order,
@@ -14,6 +15,7 @@ from typing import (
 )
 
 __all__: List[LiteralString] = [
+    "create_piece",
     "get_piece",
     "get_piece_list",
     "get_piece_list_by_order",
