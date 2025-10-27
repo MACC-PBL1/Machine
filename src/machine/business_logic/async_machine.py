@@ -114,9 +114,13 @@ class Machine:
         """Coroutine that manufactures queued pieces one by one."""
         logger.debug("Entered manufacturing coroutine.")
         while not self.__stop_machine:
+            logger.debug(f"Queue status: empty={self.__manufacturing_queue.empty()}, size={self.__manufacturing_queue.qsize()}")
             if self.__manufacturing_queue.empty():
                 self.status = self.STATUS_WAITING
+                logger.debug("Queue is empty, waiting for items...")
+            logger.debug("Waiting to get item from queue...")
             (piece_id, order_id) = await self.__manufacturing_queue.get()
+            logger.debug(f"Got piece {piece_id} from queue, starting manufacturing")
             await self._create_piece(piece_id, order_id)
             self.__manufacturing_queue.task_done()
 
