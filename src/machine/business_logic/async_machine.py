@@ -242,7 +242,8 @@ class Machine:
     ) -> None:
         """Adds the given piece from the queue."""
         logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
-        await self.__manufacturing_queue.put((piece_id, order_id))
+        # await self.__manufacturing_queue.put((piece_id, order_id))
+        self.__manufacturing_queue.put_nowait((piece_id, order_id))
 
         logger.debug(f"queue: {self.__manufacturing_queue}")
 
