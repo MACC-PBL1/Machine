@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import (
     Optional, 
     List,
+    Tuple,
 )
 
 class Message(BaseModel):
@@ -26,4 +27,4 @@ class MachineStatusResponse(BaseModel):
     status: str
     order_id: Optional[int]
     working_piece: Optional[int]
-    queue: List[int]
+    queue: List[Tuple[int, int]]
