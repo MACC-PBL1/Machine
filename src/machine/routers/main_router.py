@@ -41,6 +41,7 @@ Router = APIRouter(prefix="/machine", tags=["Machine"])
 async def health_check_auth(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger))
 ):
+    logger.debug("GET '/health/auth' endpoint called.")
     user_id = token_data.get("sub")
     user_email = token_data.get("email")
     user_role = token_data.get("role")
@@ -62,7 +63,8 @@ async def health_check_auth(
 async def get_machine_status(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)),
     machine: Machine = Depends(get_machine)
-):  
+):
+    logger.debug("GET '/machine/status' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(
@@ -92,6 +94,7 @@ async def get_all_pieces(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)), 
     db: AsyncSession = Depends(get_db)
 ):
+    logger.debug("GET '/machine/status/piece' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(
@@ -114,6 +117,7 @@ async def get_pieces_by_order(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)), 
     db: AsyncSession = Depends(get_db)
 ):
+    logger.debug(f"GET '/machine/status/piece/{{{order_id}}}' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(
@@ -141,6 +145,7 @@ async def get_piece_detail(
     db: AsyncSession = Depends(get_db),
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)),
 ):
+    logger.debug(f"GET '/machine/status/piece/{{{order_id}}}/{{{piece_id}}}' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(

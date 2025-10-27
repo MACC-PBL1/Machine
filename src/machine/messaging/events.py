@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 @register_queue_handler(LISTENING_QUEUES["request_piece"])
 async def request_piece(message: MessageType) -> None:
+    logger.info(f"EVENT: Piece requested --> Message: {message}")
     from ..business_logic import get_machine
 
     assert (order_id := message.get("order_id")), "'order_id' field should be present."
@@ -35,7 +36,7 @@ async def request_piece(message: MessageType) -> None:
     exchange_type="fanout"
 )
 def public_key(message: MessageType) -> None:
+    logger.info(f"EVENT: Public key updated: {message}")
     global PUBLIC_KEY
     assert (public_key := message.get("public_key")) is not None, "'public_key' field should be present."
     PUBLIC_KEY["key"] = str(public_key)
-    logging.info(f"Public key updated: {PUBLIC_KEY}")

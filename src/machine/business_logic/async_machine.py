@@ -197,10 +197,12 @@ class Machine:
             queue=PUBLISHING_QUEUES["confirmation"],
             rabbitmq_config=RABBITMQ_CONFIG,
         ) as publisher:
-            publisher.publish({
+            data = {
                 "order_id": self.working_piece["order_id"],
                 "piece_id": self.working_piece["piece_id"],
-            })
+            }
+            publisher.publish(data)
+            logger.info(f"COMMAND: Confirm piece creation --> {data}")
 
     @staticmethod
     async def _is_order_finished(
