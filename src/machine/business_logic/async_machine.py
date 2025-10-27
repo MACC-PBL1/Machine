@@ -116,11 +116,9 @@ class Machine:
         logger.debug("Entered manufacturing coroutine.")
         while not self.__stop_machine:
             try:
-                logger.debug(f"Queue status: empty={self.__manufacturing_queue.empty()}, size={self.__manufacturing_queue.qsize()}")
                 if self.__manufacturing_queue.empty():
                     self.status = self.STATUS_WAITING
                     logger.debug("Queue is empty, waiting for items...")
-                logger.debug("Waiting to get item from queue...")
                 (piece_id, order_id) = await self.__manufacturing_queue.get()
                 logger.debug(f"Got piece {piece_id} from queue, starting manufacturing")
                 await self._create_piece(piece_id, order_id)
@@ -249,14 +247,10 @@ class Machine:
         """Adds the given piece to the queue (thread-safe)."""
         logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
         
-        # Schedule the put operation in the event loop from any thread
-        future = asyncio.run_coroutine_threadsafe(
+        asyncio.run_coroutine_threadsafe(
             self.__manufacturing_queue.put((piece_id, order_id)),
-            self._loop
-        )
-        future.result()  # Wait for it to complete
-        
-        logger.debug(f"queue: {self.__manufacturing_queue}")
+            self._loop,
+        ).result()
 
     async def add_piece_to_queue(
         self, 
