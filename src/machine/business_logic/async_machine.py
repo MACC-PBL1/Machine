@@ -112,6 +112,7 @@ class Machine:
 
     async def _manufacturing_coroutine(self) -> None:
         """Coroutine that manufactures queued pieces one by one."""
+        logger.debug("Entered manufacturing coroutine.")
         while not self.__stop_machine:
             if self.__manufacturing_queue.empty():
                 self.status = self.STATUS_WAITING
@@ -126,6 +127,7 @@ class Machine:
     ) -> None:
         """Simulates piece manufacturing."""
         # Machine and piece status updated during manufacturing
+        logger.debug(f"Creating piece '{piece_id}' from order_id '{order_id}'")
         async with self._session_factory() as db:
             await self._update_working_piece(piece_id, order_id, db)
             await self._working_piece_to_manufacturing(db)  # Update Machine&piece status
@@ -173,7 +175,6 @@ class Machine:
     ) -> None:
         """Updates piece status to finished and order if all pieces are finished."""
         global RABBITMQ_CONFIG
-
         logger.debug("Working piece finished.")
         assert self.working_piece is not None, "Current working piece should be known."
         self.status = Machine.STATUS_CHANGING_PIECE
@@ -236,6 +237,7 @@ class Machine:
         order_id: int,
     ) -> None:
         """Adds the given piece from the queue."""
+        logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
         await self.__manufacturing_queue.put((piece_id, order_id))
 
     async def remove_pieces_from_queue(self, pieces):
