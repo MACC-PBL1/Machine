@@ -43,7 +43,7 @@ Router = APIRouter(prefix="/machine", tags=["Machine"])
     response_model=Message,
 )
 async def health_check():
-    logger.debug("GET '/' endpoint called.")
+    logger.debug("GET '/machine/health' endpoint called.")
     return {"detail": "OK"}
 
 @Router.get(
