@@ -28,4 +28,4 @@ LISTENING_QUEUES: Dict[LiteralString, LiteralString] = {
     "public_key": "client.public_key.machine",
 }
 
-PUBLIC_KEY: Optional[str] = None
+PUBLIC_KEY: Dict[str, Optional[str]] = {"key": None}
