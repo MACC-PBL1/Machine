@@ -42,7 +42,6 @@ class Machine:
     STATUS_WAITING = "Waiting"
     STATUS_CHANGING_PIECE = "Changing Piece"
     STATUS_WORKING = "Working"
-    __manufacturing_queue: asyncio.Queue[Tuple[int, int]] = asyncio.Queue()
     __stop_machine = False
     working_piece = None
     status = STATUS_WAITING
@@ -53,6 +52,7 @@ class Machine:
     ) -> None:
         # Session factory is injected to reduce coupling/dependencies
         self._session_factory = session_factory
+        self.__manufacturing_queue: asyncio.Queue[Tuple[int, int]] = asyncio.Queue()
 
     @classmethod
     async def create(
