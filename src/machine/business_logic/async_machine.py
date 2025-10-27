@@ -42,6 +42,7 @@ class Machine:
     STATUS_WAITING = "Waiting"
     STATUS_CHANGING_PIECE = "Changing Piece"
     STATUS_WORKING = "Working"
+    __manufacturing_queue: asyncio.Queue[Tuple[int, int]] = asyncio.Queue()
     __stop_machine = False
     working_piece = None
     status = STATUS_WAITING
@@ -52,7 +53,7 @@ class Machine:
     ) -> None:
         # Session factory is injected to reduce coupling/dependencies
         self._session_factory = session_factory
-        self.__manufacturing_queue: asyncio.Queue[Tuple[int, int]] = asyncio.Queue()
+        self._loop = asyncio.get_running_loop()
 
     @classmethod
     async def create(
@@ -235,17 +236,42 @@ class Machine:
                 order_id=piece.order_id,
             )
 
+    def add_piece_to_queue_sync(
+        self, 
+        piece_id: int,
+        order_id: int,
+    ) -> None:
+        """Adds the given piece to the queue (thread-safe)."""
+        logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
+        
+        # Schedule the put operation in the event loop from any thread
+        future = asyncio.run_coroutine_threadsafe(
+            self.__manufacturing_queue.put((piece_id, order_id)),
+            self._loop
+        )
+        future.result()  # Wait for it to complete
+        
+        logger.debug(f"queue: {self.__manufacturing_queue}")
+
     async def add_piece_to_queue(
         self, 
         piece_id: int,
         order_id: int,
     ) -> None:
-        """Adds the given piece from the queue."""
-        logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
-        # await self.__manufacturing_queue.put((piece_id, order_id))
-        self.__manufacturing_queue.put_nowait((piece_id, order_id))
+        """Async wrapper for add_piece_to_queue_sync."""
+        self.add_piece_to_queue_sync(piece_id, order_id)
 
-        logger.debug(f"queue: {self.__manufacturing_queue}")
+    # async def add_piece_to_queue(
+    #     self, 
+    #     piece_id: int,
+    #     order_id: int,
+    # ) -> None:
+    #     """Adds the given piece from the queue."""
+    #     logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
+    #     # await self.__manufacturing_queue.put((piece_id, order_id))
+    #     self.__manufacturing_queue.put_nowait((piece_id, order_id))
+
+    #     logger.debug(f"queue: {self.__manufacturing_queue}")
 
     async def remove_pieces_from_queue(self, pieces):
         """Adds a list of pieces to the queue and updates their status."""
