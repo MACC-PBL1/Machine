@@ -210,7 +210,7 @@ class Machine:
         ) as publisher:
             data = {
                 "order_id": self.working_piece["order_id"],
-                "piece_id": self.working_piece["piece_id"],
+                "piece_id": self.working_piece["id"],
             }
             publisher.publish(data)
             logger.info(f"COMMAND: Confirm piece creation --> {data}")
