@@ -5,6 +5,7 @@ from ..business_logic import (
 from ..messaging import PUBLIC_KEY
 from ..sql import (
     MachineStatusResponse,
+    Message,
     Piece, 
     PieceModel, 
 )
@@ -33,6 +34,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 Router = APIRouter(prefix="/machine", tags=["Machine"])
+# ------------------------------------------------------------------------------------
+# Health check
+# ------------------------------------------------------------------------------------
+@Router.get(
+    "/health",
+    summary="Health check endpoint",
+    response_model=Message,
+)
+async def health_check():
+    logger.debug("GET '/' endpoint called.")
+    return {"detail": "OK"}
 
 @Router.get(
     "/health/auth",
