@@ -240,6 +240,8 @@ class Machine:
         logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
         await self.__manufacturing_queue.put((piece_id, order_id))
 
+        logger.debug(f"queue: {self.__manufacturing_queue}")
+
     async def remove_pieces_from_queue(self, pieces):
         """Adds a list of pieces to the queue and updates their status."""
         logger.debug("Removing %i pieces from queue", len(pieces))

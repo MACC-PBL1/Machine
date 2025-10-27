@@ -27,7 +27,7 @@ async def request_piece(message: MessageType) -> None:
 
     for piece_id in range(amount):
         async with SessionLocal() as db:
-            create_piece(db, piece_id, order_id)
+            await create_piece(db, piece_id, order_id)
         await machine.add_piece_to_queue(piece_id, order_id)
 
 @register_queue_handler(

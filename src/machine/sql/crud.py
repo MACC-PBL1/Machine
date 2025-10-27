@@ -18,7 +18,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Piece functions ##################################################################################
-def create_piece(
+async def create_piece(
     db: AsyncSession,
     piece_id: int, 
     order_id: int
@@ -28,6 +28,7 @@ def create_piece(
         order_id=order_id,
         manufacturing_date=datetime.now()
     ))
+    await db.flush()
 
 async def get_piece(
     db: AsyncSession, 
