@@ -30,6 +30,7 @@ from typing import (
     Optional
 )
 import logging
+import socket
 
 logger = logging.getLogger(__name__)
 
@@ -57,12 +58,10 @@ async def health_check_auth(
     user_id = token_data.get("sub")
     user_email = token_data.get("email")
     user_role = token_data.get("role")
+    container_id = socket.gethostname()
+    logger.debug(f"GET '/machine/health' served by {container_id}")
 
-    logger.info(f" Valid JWT: user_id={user_id}, email={user_email}, role={user_role}")
-
-    return {
-        "detail": f"Order service is running. Authenticated as {user_email} (id={user_id}, role={user_role})"
-    }
+    return {"detail": f"OK - Served by {container_id}"}
 
 # --------------------------------------------------
 # GET /machine/status
