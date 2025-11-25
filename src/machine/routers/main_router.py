@@ -44,8 +44,9 @@ Router = APIRouter(prefix="/machine", tags=["Machine"])
     response_model=Message,
 )
 async def health_check():
-    logger.debug("GET '/machine/health' endpoint called.")
-    return {"detail": "OK"}
+    container_id = socket.gethostname()
+    logger.debug(f"GET '/machine/health' served by {container_id}")
+    return {"detail": f"OK - Served by {container_id}"}
 
 @Router.get(
     "/health/auth",
@@ -58,10 +59,12 @@ async def health_check_auth(
     user_id = token_data.get("sub")
     user_email = token_data.get("email")
     user_role = token_data.get("role")
-    container_id = socket.gethostname()
-    logger.debug(f"GET '/machine/health' served by {container_id}")
 
-    return {"detail": f"OK - Served by {container_id}"}
+    logger.info(f" Valid JWT: user_id={user_id}, email={user_email}, role={user_role}")
+
+    return {
+        "detail": f"Order service is running. Authenticated as {user_email} (id={user_id}, role={user_role})"
+    }
 
 # --------------------------------------------------
 # GET /machine/status
