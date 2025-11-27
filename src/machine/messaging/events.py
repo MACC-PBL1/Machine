@@ -53,7 +53,7 @@ def public_key(message: MessageType) -> None:
         logger.error("The auth service couldn't be found")
         return
 
-    target_url = f"{auth_base_url}/auth-service/public_key"
+    target_url = f"{auth_base_url}/auth-service/key"
 
     try:
         response = requests.get(target_url, timeout=5)
