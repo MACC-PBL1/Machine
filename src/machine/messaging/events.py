@@ -8,7 +8,7 @@ from chassis.messaging import (
     register_queue_handler
 )
 from chassis.sql import SessionLocal
-from chassis.consul_client import ConsulClient 
+from chassis.consul import ConsulClient 
 import requests
 import logging
 
