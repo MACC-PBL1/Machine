@@ -60,7 +60,6 @@ async def health_check_auth(
     user_email = token_data.get("email")
     user_role = token_data.get("role")
 
-    #logger.info(f" Valid JWT: user_id={user_id}, email={user_email}, role={user_role}")
     logger.info(
         f"Valid JWT: user_id={user_id}, email={user_email}, role={user_role}",
         extra={"client_id": user_id}

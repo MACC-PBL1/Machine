@@ -48,36 +48,22 @@ async def request_piece(message: MessageType) -> None:
     exchange_type="fanout"
 )
 def public_key(message: MessageType) -> None:
-    logger.info(f"EVENT: Public key updated: {message}")
     global PUBLIC_KEY
-
+    assert (auth_base_url := ConsulClient(logger).get_service_url("auth")), (
+        "The 'auth' service should be accesible"
+    )
     assert "public_key" in message, "'public_key' field should be present."
     assert message["public_key"] == "AVAILABLE", (
         f"'public_key' value is '{message['public_key']}', expected 'AVAILABLE'"
     )
-
-    consul = ConsulClient(logger)
-    auth_base_url = consul.get_service_url("auth")
-    if not auth_base_url:
-        logger.error("The auth service couldn't be found")
-        return
-
-    target_url = f"{auth_base_url}/auth/key"
-
-    response = requests.get(target_url, timeout=5)
-
-    if response.status_code == 200:
-        data = response.json()
-        new_key = data.get("public_key")
-
-        assert new_key is not None, (
-            "Auth response did not contain expected 'public_key' field."
-        )
-
-        PUBLIC_KEY["key"] = str(new_key)
-        logger.info("Public key updated")
-
-    else:
-        logger.warning(f"Auth answered with an error: {response.status_code}")
-
-
+    response = requests.get(f"{auth_base_url}/auth/key", timeout=5)
+    assert response.status_code == 200, (
+        f"Public key request returned '{response.status_code}', should return '200'"
+    )
+    data: dict = response.json()
+    new_key = data.get("public_key")
+    assert new_key is not None, (
+        "Auth response did not contain expected 'public_key' field."
+    )
+    PUBLIC_KEY["key"] = str(new_key)
+    logger.info(f"EVENT: Public key updated: {message}")
