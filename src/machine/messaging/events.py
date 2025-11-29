@@ -12,11 +12,15 @@ from chassis.consul import ConsulClient
 import requests
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("machine")
 
 @register_queue_handler(LISTENING_QUEUES["request_piece"])
 async def request_piece(message: MessageType) -> None:
-    logger.info(f"EVENT: Piece requested --> Message: {message}")
+    #logger.info(f"EVENT: Piece requested --> Message: {message}")
+    logger.info(
+        f"EVENT: Piece requested → {message}",
+        extra={"order_id": message.get("order_id")}
+    )
     from ..business_logic import get_machine
 
     assert (order_id := message.get("order_id")), "'order_id' field should be present."
@@ -31,6 +35,11 @@ async def request_piece(message: MessageType) -> None:
         async with SessionLocal() as db:
             await create_piece(db, piece_id, order_id)
             await db.commit()
+        logger.info(
+            f"Piece created (piece_id={piece_id}) for order {order_id}",
+            extra={"order_id": order_id}
+        )
+        
         await machine.add_piece_to_queue(piece_id, order_id)
 
 @register_queue_handler(

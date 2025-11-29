@@ -32,7 +32,7 @@ from typing import (
 import logging
 import socket
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("machine")
 
 Router = APIRouter(prefix="/machine", tags=["Machine"])
 # ------------------------------------------------------------------------------------
@@ -60,8 +60,11 @@ async def health_check_auth(
     user_email = token_data.get("email")
     user_role = token_data.get("role")
 
-    logger.info(f" Valid JWT: user_id={user_id}, email={user_email}, role={user_role}")
-
+    #logger.info(f" Valid JWT: user_id={user_id}, email={user_email}, role={user_role}")
+    logger.info(
+        f"Valid JWT: user_id={user_id}, email={user_email}, role={user_role}",
+        extra={"client_id": user_id}
+    )
     return {
         "detail": f"Order service is running. Authenticated as {user_email} (id={user_id}, role={user_role})"
     }
@@ -139,6 +142,10 @@ async def get_pieces_by_order(
             status.HTTP_401_UNAUTHORIZED, 
             f"Access denied: user_role={user_role} (admin required)",
         )
+    logger.info(
+        f"Listing pieces for order {order_id}",
+        extra={"order_id": order_id, "client_id": token_data["sub"]}
+    )
     result = await get_list_statement_result(
         db=db,
         stmt=select(PieceModel).where(PieceModel.order_id == order_id)
@@ -167,6 +174,10 @@ async def get_piece_detail(
             status.HTTP_401_UNAUTHORIZED, 
             f"Access denied: user_role={user_role} (admin required)",
         )
+    logger.info(
+        f"Reading piece {piece_id} from order {order_id}",
+        extra={"order_id": order_id, "client_id": token_data["sub"]}
+    )
     piece: Optional[PieceModel] = await get_element_statement_result(
         db=db,
         stmt=select(PieceModel)

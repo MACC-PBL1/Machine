@@ -19,9 +19,11 @@ import asyncio
 import logging.config
 import os
 
+from chassis.logging.rabbitmq_logging import setup_rabbitmq_logging
 # Configure logging
 logging.config.fileConfig(os.path.join(os.path.dirname(__file__), "logging.ini"))
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("machine")
+setup_rabbitmq_logging("machine", RABBITMQ_CONFIG, level=logging.INFO)
 
 # App Lifespan #####################################################################################
 @asynccontextmanager
