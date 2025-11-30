@@ -2,14 +2,21 @@ from ..business_logic import (
     get_machine, 
     Machine
 )
-from ..messaging import PUBLIC_KEY
+from ..messaging import (
+    RABBITMQ_CONFIG,
+    PUBLIC_KEY,
+)
 from ..sql import (
     MachineStatusResponse,
     Message,
     Piece, 
     PieceModel, 
 )
-from chassis.routers import raise_and_log_error
+from chassis.messaging import is_rabbitmq_healthy
+from chassis.routers import (
+    get_system_metrics,
+    raise_and_log_error,
+)
 from chassis.security import create_jwt_verifier
 from chassis.sql import (
     get_db, 
@@ -35,6 +42,7 @@ import socket
 logger = logging.getLogger(__name__)
 
 Router = APIRouter(prefix="/machine", tags=["Machine"])
+
 # ------------------------------------------------------------------------------------
 # Health check
 # ------------------------------------------------------------------------------------
@@ -44,28 +52,38 @@ Router = APIRouter(prefix="/machine", tags=["Machine"])
     response_model=Message,
 )
 async def health_check():
+    if not is_rabbitmq_healthy(RABBITMQ_CONFIG):
+        raise_and_log_error(
+            logger=logger,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            message="[LOG:REST] - RabbitMQ not reachable"
+        )
+
     container_id = socket.gethostname()
-    logger.debug(f"GET '/machine/health' served by {container_id}")
-    return {"detail": f"OK - Served by {container_id}"}
+    logger.debug(f"[LOG:REST] - GET '/health' served by {container_id}")
+    return {
+        "detail": f"OK - Served by {container_id}",
+        "system_metrics": get_system_metrics()
+    }
 
 @Router.get(
     "/health/auth",
     summary="Health check endpoint (JWT protected)",
+    response_model=Message
 )
 async def health_check_auth(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger))
 ):
-    logger.debug("GET '/health/auth' endpoint called.")
+    logger.debug("[LOG:REST] - GET '/health/auth' endpoint called.")
+
     user_id = token_data.get("sub")
-    user_email = token_data.get("email")
     user_role = token_data.get("role")
 
-    logger.info(
-        f"Valid JWT: user_id={user_id}, email={user_email}, role={user_role}",
-        extra={"client_id": user_id}
-    )
+    logger.info(f"[LOG:REST] - Valid JWT: user_id={user_id}, role={user_role}")
+
     return {
-        "detail": f"Order service is running. Authenticated as {user_email} (id={user_id}, role={user_role})"
+        "detail": f"Auth service is running. Authenticated as (id={user_id}, role={user_role})",
+        "system_metrics": get_system_metrics()
     }
 
 # --------------------------------------------------
@@ -80,7 +98,7 @@ async def get_machine_status(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)),
     machine: Machine = Depends(get_machine)
 ):
-    logger.debug("GET '/machine/status' endpoint called.")
+    logger.debug("[LOG:REST] - GET '/machine/status' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(
@@ -110,7 +128,7 @@ async def get_all_pieces(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)), 
     db: AsyncSession = Depends(get_db)
 ):
-    logger.debug("GET '/machine/status/piece' endpoint called.")
+    logger.debug("[LOG:REST] - GET '/machine/status/piece' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(
@@ -133,7 +151,7 @@ async def get_pieces_by_order(
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)), 
     db: AsyncSession = Depends(get_db)
 ):
-    logger.debug(f"GET '/machine/status/piece/{{{order_id}}}' endpoint called.")
+    logger.debug(f"[LOG:REST] - GET '/machine/status/piece/{{{order_id}}}' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(
@@ -141,10 +159,6 @@ async def get_pieces_by_order(
             status.HTTP_401_UNAUTHORIZED, 
             f"Access denied: user_role={user_role} (admin required)",
         )
-    logger.info(
-        f"Listing pieces for order {order_id}",
-        extra={"order_id": order_id, "client_id": token_data["sub"]}
-    )
     result = await get_list_statement_result(
         db=db,
         stmt=select(PieceModel).where(PieceModel.order_id == order_id)
@@ -165,7 +179,7 @@ async def get_piece_detail(
     db: AsyncSession = Depends(get_db),
     token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)),
 ):
-    logger.debug(f"GET '/machine/status/piece/{{{order_id}}}/{{{piece_id}}}' endpoint called.")
+    logger.debug(f"[LOG:REST] - GET '/machine/status/piece/{{{order_id}}}/{{{piece_id}}}' endpoint called.")
     user_role = token_data.get("role")
     if user_role != "admin":
         raise_and_log_error(
@@ -173,10 +187,6 @@ async def get_piece_detail(
             status.HTTP_401_UNAUTHORIZED, 
             f"Access denied: user_role={user_role} (admin required)",
         )
-    logger.info(
-        f"Reading piece {piece_id} from order {order_id}",
-        extra={"order_id": order_id, "client_id": token_data["sub"]}
-    )
     piece: Optional[PieceModel] = await get_element_statement_result(
         db=db,
         stmt=select(PieceModel)

@@ -19,25 +19,23 @@ import asyncio
 import logging.config
 import os
 
-from chassis.logging.rabbitmq_logging import setup_rabbitmq_logging
 # Configure logging
 logging.config.fileConfig(os.path.join(os.path.dirname(__file__), "logging.ini"))
 logger = logging.getLogger(__name__)
-setup_rabbitmq_logging("machine", RABBITMQ_CONFIG, level=logging.INFO)
 
 # App Lifespan #####################################################################################
 @asynccontextmanager
 async def lifespan(__app: FastAPI):
     """Lifespan context manager."""
     try:
-        logger.info("Starting up")
+        logger.info("[LOG:MACHINE] - Starting up")
         try:
-            logger.info("Creating database tables")
+            logger.info("[LOG:MACHINE] - Creating database tables")
             async with Engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
-            logger.info("Creating machine")
+            logger.info("[LOG:MACHINE] - Creating machine")
             await get_machine()
-            logger.info("Starting RabbitMQ listeners")
+            logger.info("[LOG:MACHINE] - Starting RabbitMQ listeners")
             try:
                 for _, queue in LISTENING_QUEUES.items():
                     Thread(
@@ -47,31 +45,30 @@ async def lifespan(__app: FastAPI):
                     ).start()
             except Exception as e:
                 logger.error(
-                    f"Could not start the RabbitMQ listeners: {e}"
+                    f"[LOG:MACHINE] - Could not start the RabbitMQ listeners: Reason: {e}",
+                    exc_info=True
                 )
             
-            logger.info("Registering service to Consul...")
+            logger.info("[LOG:MACHINE] - Registering service to Consul...")
             try:
                 service_port = int(os.getenv("PORT", "8000"))
                 consul = ConsulClient(logger=logger)
                 consul.register_service(service_name="machine-service", port=service_port, health_path="/machine/health")
                 
             except Exception as e:
-                logger.error(f"Failed to register with Consul: {e}")
+                logger.error(f"[LOG:MACHINE] - Failed to register with Consul: Reason={e}", exc_info=True)
 
         except Exception:
-            logger.error(
-                "Could not create tables at startup",
-            )
+            logger.error("[LOG:MACHINE] - Could not create tables at startup")
         yield
     finally:
-        logger.info("Shutting down database")
+        logger.info("[LOG:MACHINE] - Shutting down database")
         await Engine.dispose()
 
 
 # OpenAPI Documentation ############################################################################
 APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
-logger.info("Running app version %s", APP_VERSION)
+logger.info("[LOG:MACHINE] - Running app version %s", APP_VERSION)
 DESCRIPTION = """
 Monolithic manufacturing machine application.
 """
@@ -110,6 +107,6 @@ def start_server():
     config.bind = [os.getenv("HOST", "0.0.0.0") + ":" + os.getenv("PORT", "8000")]
     config.workers = int(os.getenv("WORKERS", "1"))
 
-    logger.info("Starting Hypercorn server on %s", config.bind)
+    logger.info("[LOG:MACHINE] - Starting Hypercorn server on %s", config.bind)
 
     asyncio.run(serve(APP, config)) # type: ignore

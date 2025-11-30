@@ -33,7 +33,6 @@ import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
-logger.debug("Machine logger set.")
 
 MachineType = TypeVar("MachineType", bound="Machine")
 
@@ -61,7 +60,7 @@ class Machine:
         session_factory: async_sessionmaker[AsyncSession],
     ) -> MachineType:
         """Machine constructor: loads manufacturing/queued pieces and starts simulation."""
-        logger.info("AsyncMachine initialized")
+        logger.info("[LOG:MACHINE_CLASS] - AsyncMachine initialized")
         self = cls(session_factory)
         asyncio.create_task(self._manufacturing_coroutine())
         await self._reload_queue_from_database()
@@ -95,9 +94,11 @@ class Machine:
             )
             if manufacturing_pieces and manufacturing_pieces[0]:
                 return manufacturing_pieces[0]
-        except (ProgrammingError, OperationalError):
+        except (ProgrammingError, OperationalError) as e:
             logger.error(
-                "Error getting Manufacturing Piece at startup. It may be the first execution"
+                "[LOG:MACHINE_CLASS] - Error getting Manufacturing Piece at startup. It may be the first execution: "
+                f"Reason={e}",
+                exc_info=True
             )
         return None
 
@@ -107,25 +108,29 @@ class Machine:
         try:
             queued_pieces = await get_piece_list_by_status(db, PieceModel.STATUS_QUEUED)
             return queued_pieces
-        except (ProgrammingError, OperationalError):
-            logger.error("Error getting Queued Pieces at startup. It may be the first execution")
+        except (ProgrammingError, OperationalError) as e:
+            logger.error(
+                "[LOG:MACHINE_CLASS] - Error getting Queued Pieces at startup. It may be the first execution: "
+                f"Reason={e}",
+                exc_info=True
+            )
             return []
 
     async def _manufacturing_coroutine(self) -> None:
         """Coroutine that manufactures queued pieces one by one."""
-        logger.debug("Entered manufacturing coroutine.")
+        logger.debug("[LOG:MACHINE_CLASS] - Entered manufacturing coroutine.")
         while not self.__stop_machine:
             try:
                 if self.__manufacturing_queue.empty():
                     self.status = self.STATUS_WAITING
-                    logger.debug("Queue is empty, waiting for items...")
+                    logger.debug("[LOG:MACHINE_CLASS] - Queue is empty, waiting for items...")
                 (piece_id, order_id) = await self.__manufacturing_queue.get()
-                logger.debug(f"Got piece {piece_id} from queue, starting manufacturing")
+                logger.debug(f"[LOG:MACHINE_CLASS] - Got piece {piece_id} from queue, starting manufacturing")
                 await self._create_piece(piece_id, order_id)
                 self.__manufacturing_queue.task_done()
-                logger.debug(f"Finished piece {piece_id}, looping back. Queue size: {self.__manufacturing_queue.qsize()}")
+                logger.debug(f"[LOG:MACHINE_CLASS] - Finished piece {piece_id}, looping back. Queue size: {self.__manufacturing_queue.qsize()}")
             except Exception as e:
-                logger.error(f"Error in manufacturing coroutine: {e}", exc_info=True)
+                logger.error(f"[LOG:MACHINE_CLASS] - Error in manufacturing coroutine: Reason={e}", exc_info=True)
                 self.__manufacturing_queue.task_done()
 
     async def _create_piece(
@@ -135,7 +140,7 @@ class Machine:
     ) -> None:
         """Simulates piece manufacturing."""
         # Machine and piece status updated during manufacturing
-        logger.debug(f"Creating piece '{piece_id}' from order_id '{order_id}'")
+        logger.debug(f"[LOG:MACHINE_CLASS] - Creating piece '{piece_id}' from order_id '{order_id}'")
         async with self._session_factory() as db:
             await self._update_working_piece(piece_id, order_id, db)
             await self._working_piece_to_manufacturing(db)  # Update Machine&piece status
@@ -156,7 +161,7 @@ class Machine:
         db: AsyncSession
     ) -> None:
         """Loads a piece for the given id and updates the working piece."""
-        logger.debug("Updating working piece to %i", piece_id)
+        logger.debug("[LOG:MACHINE_CLASS] - Updating working piece to %i", piece_id)
         assert (piece := await get_piece(db, piece_id, order_id)) is not None, "Piece should exist."
         self.working_piece = piece.as_dict()
 
@@ -174,8 +179,11 @@ class Machine:
                 order_id=self.working_piece["order_id"],
                 status=PieceModel.STATUS_MANUFACTURING
             )
-        except Exception as exc:
-            logger.error(f"Could not update working piece status to manufacturing: {exc}")
+        except Exception as e:
+            logger.error(
+                f"[LOG:MACHINE_CLASS] - Could not update working piece status to manufacturing: Reason={e}", 
+                exc_info=True
+            )
 
     async def _working_piece_to_finished(
         self, 
@@ -183,7 +191,7 @@ class Machine:
     ) -> None:
         """Updates piece status to finished and order if all pieces are finished."""
         global RABBITMQ_CONFIG
-        logger.debug("Working piece finished.")
+        logger.debug("[LOG:MACHINE_CLASS] - Working piece finished.")
         assert self.working_piece is not None, "Current working piece should be known."
         self.status = Machine.STATUS_CHANGING_PIECE
 
@@ -211,7 +219,6 @@ class Machine:
                 "piece_id": self.working_piece["id"],
             }
             publisher.publish(data)
-            logger.info(f"COMMAND: Confirm piece creation --> {data}")
 
     @staticmethod
     async def _is_order_finished(
@@ -232,7 +239,7 @@ class Machine:
         pieces: List[PieceModel]
     ) -> None:
         """Adds a list of pieces to the queue and updates their status."""
-        logger.debug("Adding %i pieces to queue", len(pieces))
+        logger.debug("[LOG:MACHINE_CLASS] - Adding %i pieces to queue", len(pieces))
         for piece in pieces:
             await self.add_piece_to_queue(
                 piece_id=piece.id,
@@ -245,7 +252,7 @@ class Machine:
         order_id: int,
     ) -> None:
         """Adds the given piece to the queue (thread-safe)."""
-        logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
+        logger.debug(f"[LOG:MACHINE_CLASS] - Piece '{piece_id}' from order_id '{order_id}' added to queue.")
         
         asyncio.run_coroutine_threadsafe(
             self.__manufacturing_queue.put((piece_id, order_id)),
@@ -260,30 +267,18 @@ class Machine:
         """Async wrapper for add_piece_to_queue_sync."""
         self.add_piece_to_queue_sync(piece_id, order_id)
 
-    # async def add_piece_to_queue(
-    #     self, 
-    #     piece_id: int,
-    #     order_id: int,
-    # ) -> None:
-    #     """Adds the given piece from the queue."""
-    #     logger.debug(f"Piece '{piece_id}' from order_id '{order_id}' added to queue.")
-    #     # await self.__manufacturing_queue.put((piece_id, order_id))
-    #     self.__manufacturing_queue.put_nowait((piece_id, order_id))
-
-    #     logger.debug(f"queue: {self.__manufacturing_queue}")
-
     async def remove_pieces_from_queue(self, pieces):
         """Adds a list of pieces to the queue and updates their status."""
-        logger.debug("Removing %i pieces from queue", len(pieces))
+        logger.debug("[LOG:MACHINE_CLASS] - Removing %i pieces from queue", len(pieces))
         for piece in pieces:
             await self.remove_piece_from_queue(piece)
 
     async def remove_piece_from_queue(self, piece) -> bool:
         """Removes the given piece from the queue."""
-        logger.info("Removing piece %i", piece.id)
+        logger.info("[LOG:MACHINE_CLASS] - Removing piece %i", piece.id)
         if self.working_piece == piece.id:
             logger.warning(
-                "Piece %i is being manufactured, cannot remove from queue\n\n",
+                "[LOG:MACHINE_CLASS] - Piece %i is being manufactured, cannot remove from queue\n\n",
                 piece.id
             )
             return False
@@ -303,7 +298,7 @@ class Machine:
                 removed = True
 
         if not removed:
-            logger.warning("Piece %i not found in the queue.", piece.id)
+            logger.warning("[LOG:MACHINE_CLASS] - Piece %i not found in the queue.", piece.id)
 
         return removed
 
