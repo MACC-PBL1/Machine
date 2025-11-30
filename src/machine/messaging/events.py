@@ -12,7 +12,7 @@ from chassis.consul import ConsulClient
 import requests
 import logging
 
-logger = logging.getLogger("machine")
+logger = logging.getLogger(__name__)
 
 @register_queue_handler(LISTENING_QUEUES["request_piece"])
 async def request_piece(message: MessageType) -> None:

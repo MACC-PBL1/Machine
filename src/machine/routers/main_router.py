@@ -32,7 +32,7 @@ from typing import (
 import logging
 import socket
 
-logger = logging.getLogger("machine")
+logger = logging.getLogger(__name__)
 
 Router = APIRouter(prefix="/machine", tags=["Machine"])
 # ------------------------------------------------------------------------------------
