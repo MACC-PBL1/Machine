@@ -2,7 +2,7 @@ from ..business_logic import (
     get_machine, 
     Machine
 )
-from ..messaging import (
+from ..global_vars import (
     RABBITMQ_CONFIG,
     PUBLIC_KEY,
 )

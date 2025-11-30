@@ -1,5 +1,5 @@
 from ..sql import create_piece
-from .global_vars import (
+from ..global_vars import (
     PUBLIC_KEY,
     LISTENING_QUEUES
 )

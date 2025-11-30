@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Simulation of a machine that manufactures pieces."""
-from ..messaging import (
+from ..global_vars import (
     PUBLISHING_QUEUES,
     RABBITMQ_CONFIG,
 )
