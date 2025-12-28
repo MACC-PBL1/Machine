@@ -21,10 +21,12 @@ RABBITMQ_CONFIG: RabbitMQConfig = {
 }
 
 PUBLISHING_QUEUES: Dict[LiteralString, LiteralString] = {
-    "confirmation": "machine.confirmation_piece"
+    "piece_executed": "machine.piece_executed",
 }
+
 LISTENING_QUEUES: Dict[LiteralString, LiteralString] = {
-    "request_piece": "machine.request_piece",
+    "piece_created": "warehouse.piece_created",
+    "machine_cancel_piece" : "warehouse.machine_cancel_piece",
     "public_key": "client.public_key.machine",
 }
 

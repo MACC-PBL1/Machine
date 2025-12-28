@@ -10,22 +10,18 @@ class Message(BaseModel):
     detail: str
     system_metrics: dict
 
-class PieceBase(BaseModel):
-    id: int
-    manufacturing_date: Optional[datetime]
-    status: str = "Queued"
-
-class Piece(PieceBase):
-    order_id: Optional[int]
+class MachineTask(BaseModel):
+    piece_id: int
+    status: str
+    queued_at: datetime
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
 
     class Config:
         from_attributes = True
 
-class PieceCreate(BaseModel):
-    order: Optional[int]
 
 class MachineStatusResponse(BaseModel):
     status: str
-    order_id: Optional[int]
     working_piece: Optional[int]
-    queue: List[Tuple[int, int]]
+    queue: List[int]

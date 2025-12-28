@@ -1,33 +1,36 @@
-from .models import PieceModel
+
+from .models import MachineTaskModel
+
 from .crud import (
-    create_piece,
-    get_piece,
-    get_piece_list,
-    get_piece_list_by_order,
-    get_piece_list_by_status,
-    update_piece_manufacturing_date_to_now,
-    update_piece_status,
+    create_task,
+    get_task_by_piece,
+    list_tasks,
+    list_tasks_by_status,
+    mark_task_working,
+    mark_task_done,
+    mark_task_failed,
+    mark_task_cancelled,
 )
+
 from .schemas import (
     MachineStatusResponse,
     Message,
-    Piece, 
-)
-from typing import (
-    List,
-    LiteralString,
+    MachineTask,
 )
 
-__all__: List[LiteralString] = [
-    "create_piece",
-    "get_piece",
-    "get_piece_list",
-    "get_piece_list_by_order",
-    "get_piece_list_by_status",
+from typing import List
+
+__all__: List[str] = [
+    "MachineTaskModel",
+    "create_task",
+    "get_task_by_piece",
+    "list_tasks",
+    "list_tasks_by_status",
+    "mark_task_working",
+    "mark_task_done",
+    "mark_task_failed",
+    "mark_task_cancelled",
     "MachineStatusResponse",
     "Message",
-    "Piece",
-    "PieceModel",
-    "update_piece_manufacturing_date_to_now",
-    "update_piece_status",
+    "MachineTask",
 ]

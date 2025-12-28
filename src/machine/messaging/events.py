@@ -1,4 +1,3 @@
-from ..sql import create_piece
 from ..global_vars import (
     PUBLIC_KEY,
     LISTENING_QUEUES
@@ -11,28 +10,53 @@ from chassis.sql import SessionLocal
 from chassis.consul import ConsulClient 
 import requests
 import logging
+from ..sql import mark_task_cancelled
 
 logger = logging.getLogger(__name__)
 
-@register_queue_handler(LISTENING_QUEUES["request_piece"])
-async def request_piece(message: MessageType) -> None:
+
+
+@register_queue_handler(LISTENING_QUEUES["piece_created"])
+async def on_piece_created(message: MessageType) -> None:
     from ..business_logic import get_machine
 
-    assert (order_id := message.get("order_id")), "'order_id' field should be present."
-    assert (amount := message.get("amount")), "'amount' field should be present."
+    assert (piece_id := message.get("piece_id")) is not None, "'piece_id' field should be present."
 
-    order_id = int(order_id)
-    amount = int(amount)
-
-    logger.info(f"[EVENT:PIECE:REQUESTED] - Pieces requested: order_id={order_id}, amount={amount}")
+    piece_id = int(piece_id)
 
     machine = await get_machine()
 
-    for piece_id in range(amount):
-        async with SessionLocal() as db:
-            await create_piece(db, piece_id, order_id)
-            await db.commit()
-        await machine.add_piece_to_queue(piece_id, order_id)
+    await machine.add_piece_to_queue(piece_id=piece_id)
+
+@register_queue_handler(LISTENING_QUEUES["machine_cancel_piece"])
+async def on_machine_cancel_piece(message: MessageType) -> None:
+    """
+    Cancels a technical task by piece_id.
+    Best-effort: WORKING tasks may finish.
+    """
+    assert (piece_id := message.get("piece_id")) is not None, "'piece_id' is required"
+    piece_id = int(piece_id)
+
+    logger.warning(
+        "[EVENT:MACHINE:CANCEL_PIECE] - piece_id=%s",
+        piece_id,
+    )
+
+    async with SessionLocal() as db:
+        task = await mark_task_cancelled(db, piece_id)
+
+    if task:
+        logger.info(
+            "[EVENT:MACHINE:CANCELLED] - piece_id=%s status=%s",
+            piece_id,
+            task.status,
+        )
+    else:
+        logger.info(
+            "[EVENT:MACHINE:CANCEL_SKIPPED] - No task found for piece_id=%s",
+            piece_id,
+        )
+
 
 @register_queue_handler(
     queue=LISTENING_QUEUES["public_key"],

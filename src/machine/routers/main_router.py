@@ -1,17 +1,19 @@
 from ..business_logic import (
-    get_machine, 
-    Machine
+    get_machine,
+    Machine,
 )
+
 from ..global_vars import (
     RABBITMQ_CONFIG,
     PUBLIC_KEY,
 )
+
 from ..sql import (
-    MachineStatusResponse,
     Message,
-    Piece, 
-    PieceModel, 
 )
+from ..sql.models import MachineTaskModel
+
+
 from chassis.messaging import is_rabbitmq_healthy
 from chassis.routers import (
     get_system_metrics,
@@ -19,25 +21,21 @@ from chassis.routers import (
 )
 from chassis.security import create_jwt_verifier
 from chassis.sql import (
-    get_db, 
-    get_list, 
-    get_list_statement_result, 
-    get_element_statement_result,
+    get_db,
+    get_list,
 )
+
 from fastapi import (
-    APIRouter, 
-    Depends, 
-    HTTPException,
-    status
+    APIRouter,
+    Depends,
+    status,
 )
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from typing import (
-    List, 
-    Optional
-)
+
 import logging
 import socket
+
 
 logger = logging.getLogger(__name__)
 
@@ -86,116 +84,29 @@ async def health_check_auth(
         "system_metrics": get_system_metrics()
     }
 
-# --------------------------------------------------
-# GET /machine/status
-# --------------------------------------------------
+# ------------------------------------------------------------------
+# Estado técnico de la máquina
+# ------------------------------------------------------------------
 @Router.get(
-    "/status", 
-    response_model=MachineStatusResponse, 
-    summary="Estado actual de la máquina"
+    "/status",
+    summary="Machine technical status",
 )
-async def get_machine_status(
-    token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)),
-    machine: Machine = Depends(get_machine)
-):
-    logger.debug("[LOG:REST] - GET '/machine/status' endpoint called.")
-    user_role = token_data.get("role")
-    if user_role != "admin":
-        raise_and_log_error(
-            logger, 
-            status.HTTP_401_UNAUTHORIZED, 
-            f"Access denied: user_role={user_role} (admin required)",
-        )
-    queue = await machine.list_queued_pieces()
-    working_piece_id = machine.working_piece["id"] if machine.working_piece else None
-    order_id = machine.working_piece["order_id"] if machine.working_piece else None
-    return MachineStatusResponse(
-        status=machine.status, 
-        order_id=order_id, 
-        working_piece=working_piece_id, 
-        queue=queue
-    )
+async def get_machine_status(machine: Machine = Depends(get_machine)):
+    return {
+        "status": machine.status,
+        "working_piece_id": machine.working_piece,
+        "queue_size": machine._queue.qsize(),
+        "queued_piece_ids": await machine.list_queued_pieces(),
+    }
 
-# --------------------------------------------------
-# GET /machine/status/piece
-# --------------------------------------------------
+# ------------------------------------------------------------------
+# Historial de piezas ejecutadas
+# ------------------------------------------------------------------
 @Router.get(
-    "/status/piece", 
-    response_model=List[Piece], 
-    summary="Lista de todas las piezas"
+    "/tasks",
+    summary="List machine tasks"
 )
-async def get_all_pieces(
-    token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)), 
-    db: AsyncSession = Depends(get_db)
-):
-    logger.debug("[LOG:REST] - GET '/machine/status/piece' endpoint called.")
-    user_role = token_data.get("role")
-    if user_role != "admin":
-        raise_and_log_error(
-            logger, 
-            status.HTTP_401_UNAUTHORIZED, 
-            f"Access denied: user_role={user_role} (admin required)",
-        )
-    return await get_list(db, PieceModel)
-
-# --------------------------------------------------
-# GET /machine/status/piece/{order_id}
-# --------------------------------------------------
-@Router.get(
-    "/status/piece/{order_id}", 
-    response_model=List[Piece], 
-    summary="Lista de piezas por order_id"
-)
-async def get_pieces_by_order(
-    order_id: int, 
-    token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)), 
-    db: AsyncSession = Depends(get_db)
-):
-    logger.debug(f"[LOG:REST] - GET '/machine/status/piece/{{{order_id}}}' endpoint called.")
-    user_role = token_data.get("role")
-    if user_role != "admin":
-        raise_and_log_error(
-            logger, 
-            status.HTTP_401_UNAUTHORIZED, 
-            f"Access denied: user_role={user_role} (admin required)",
-        )
-    result = await get_list_statement_result(
-        db=db,
-        stmt=select(PieceModel).where(PieceModel.order_id == order_id)
-    )
-    return result
-
-# --------------------------------------------------
-# GET /machine/status/piece/{order_id}/{piece_id}
-# --------------------------------------------------
-@Router.get(
-    "/status/piece/{order_id}/{piece_id}", 
-    response_model=Piece, 
-    summary="Información de una pieza específica"
-)
-async def get_piece_detail(
-    order_id: int, 
-    piece_id: int, 
+async def list_machine_tasks(
     db: AsyncSession = Depends(get_db),
-    token_data: dict = Depends(create_jwt_verifier(lambda: PUBLIC_KEY["key"], logger)),
 ):
-    logger.debug(f"[LOG:REST] - GET '/machine/status/piece/{{{order_id}}}/{{{piece_id}}}' endpoint called.")
-    user_role = token_data.get("role")
-    if user_role != "admin":
-        raise_and_log_error(
-            logger, 
-            status.HTTP_401_UNAUTHORIZED, 
-            f"Access denied: user_role={user_role} (admin required)",
-        )
-    piece: Optional[PieceModel] = await get_element_statement_result(
-        db=db,
-        stmt=select(PieceModel)
-                .where(PieceModel.order_id == order_id)
-                .where(PieceModel.id == piece_id)
-    )
-    if piece is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="Piece not found for this order"
-        )
-    return piece.as_dict()
+    return await get_list(db, MachineTaskModel)
