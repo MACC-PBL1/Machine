@@ -23,6 +23,12 @@ class MachineTaskModel(BaseModel):
 
     piece_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
 
+    piece_type: Mapped[str] = mapped_column(
+        String(1), 
+        nullable=False,
+        index=True,
+    )
+
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,

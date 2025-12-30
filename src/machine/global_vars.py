@@ -6,6 +6,10 @@ from typing import (
     Optional,
 )
 import os
+MACHINE_TYPE = os.getenv("MACHINE_TYPE")  # "A" | "B"
+if MACHINE_TYPE not in ("A", "B"):
+    raise RuntimeError("MACHINE_TYPE must be A or B")
+
 
 # RabbitMQ Configuration ###########################################################################
 RABBITMQ_CONFIG: RabbitMQConfig = {
@@ -17,7 +21,7 @@ RABBITMQ_CONFIG: RabbitMQConfig = {
     "ca_cert": Path(ca_cert_path) if (ca_cert_path := os.getenv("RABBITMQ_CA_CERT_PATH", None)) is not None else None,
     "client_cert": Path(client_cert_path) if (client_cert_path := os.getenv("RABBITMQ_CLIENT_CERT_PATH", None)) is not None else None,
     "client_key": Path(client_key_path) if (client_key_path := os.getenv("RABBITMQ_CLIENT_KEY_PATH", None)) is not None else None,
-    "prefetch_count": int(os.getenv("RABBITMQ_PREFETCH_COUNT", 10))
+    "prefetch_count": int(os.getenv("RABBITMQ_PREFETCH_COUNT", 1))
 }
 
 PUBLISHING_QUEUES: Dict[LiteralString, LiteralString] = {
@@ -25,7 +29,7 @@ PUBLISHING_QUEUES: Dict[LiteralString, LiteralString] = {
 }
 
 LISTENING_QUEUES: Dict[LiteralString, LiteralString] = {
-    "piece_created": "warehouse.piece_created",
+    "piece_created": f"machine.piece.{MACHINE_TYPE}",
     "machine_cancel_piece" : "warehouse.machine_cancel_piece",
     "public_key": "client.public_key.machine",
 }

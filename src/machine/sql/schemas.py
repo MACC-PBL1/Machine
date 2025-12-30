@@ -12,6 +12,7 @@ class Message(BaseModel):
 
 class MachineTask(BaseModel):
     piece_id: int
+    piece_type: str
     status: str
     queued_at: datetime
     started_at: Optional[datetime]

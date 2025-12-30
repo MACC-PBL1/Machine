@@ -11,22 +11,41 @@ from chassis.consul import ConsulClient
 import requests
 import logging
 from ..sql import mark_task_cancelled
+import os
 
 logger = logging.getLogger(__name__)
 
+MACHINE_TYPE = os.getenv("MACHINE_TYPE") 
 
+if MACHINE_TYPE not in ("A", "B"):
+    raise RuntimeError("MACHINE_TYPE must be 'A' or 'B'")
 
 @register_queue_handler(LISTENING_QUEUES["piece_created"])
 async def on_piece_created(message: MessageType) -> None:
     from ..business_logic import get_machine
 
-    assert (piece_id := message.get("piece_id")) is not None, "'piece_id' field should be present."
+    assert (piece_id := message.get("piece_id")) is not None, (
+        "'piece_id' field should be present."
+    )
+    assert (piece_type := message.get("piece_type")) is not None, (
+        "'piece_type' field should be present."
+    )
 
     piece_id = int(piece_id)
 
     machine = await get_machine()
 
-    await machine.add_piece_to_queue(piece_id=piece_id)
+    logger.info(
+        "[MACHINE-%s] Received piece %s",
+        MACHINE_TYPE,
+        piece_id,
+    )
+
+    await machine.add_piece_to_queue(
+        piece_id=piece_id,
+        piece_type=piece_type,
+    )
+
 
 @register_queue_handler(LISTENING_QUEUES["machine_cancel_piece"])
 async def on_machine_cancel_piece(message: MessageType) -> None:

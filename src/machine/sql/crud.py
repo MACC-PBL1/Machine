@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 async def create_task(
     db: AsyncSession,
     piece_id: int,
+    piece_type: str,
 ) -> MachineTaskModel:
     existing = await get_task_by_piece(db, piece_id)
     if existing:
@@ -27,6 +28,7 @@ async def create_task(
 
     task = MachineTaskModel(
         piece_id=piece_id,
+        piece_type=piece_type,
         status=MachineTaskModel.STATUS_QUEUED,
     )
     db.add(task)
