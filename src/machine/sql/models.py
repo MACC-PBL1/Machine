@@ -1,7 +1,5 @@
 from chassis.sql import BaseModel
-from datetime import datetime
 from sqlalchemy import (
-    DateTime,
     Integer, 
     String, 
 )
@@ -10,43 +8,16 @@ from sqlalchemy.orm import (
     mapped_column
 )
 
-class MachineTaskModel(BaseModel):
-    __tablename__ = "machine_task"
+class Task(BaseModel):
+    __tablename__ = "task"
 
-    STATUS_QUEUED = "QUEUED"
-    STATUS_WORKING = "WORKING"
-    STATUS_DONE = "DONE"
-    STATUS_FAILED = "FAILED"
-    STATUS_CANCELLED = "CANCELLED"
+    STATUS_QUEUED = "Queued"
+    STATUS_PROCESSING = "Processing"
+    STATUS_PROCESSED = "Processed"
+    STATUS_FAILED = "Failed"
+    STATUS_CANCELLED = "Cancelled"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
-    piece_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-
-    piece_type: Mapped[str] = mapped_column(
-        String(1), 
-        nullable=False,
-        index=True,
-    )
-
-    status: Mapped[str] = mapped_column(
-        String(32),
-        nullable=False,
-        default=STATUS_QUEUED,
-        index=True,
-    )
-
-    queued_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=datetime.utcnow,
-    )
-
-    started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
-
-    finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
+    piece_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    piece_type: Mapped[str] = mapped_column(String(1), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default=STATUS_QUEUED)

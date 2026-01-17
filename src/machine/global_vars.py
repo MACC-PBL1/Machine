@@ -6,6 +6,8 @@ from typing import (
     Optional,
 )
 import os
+
+# Machine type #####################################################################################
 MACHINE_TYPE = os.getenv("MACHINE_TYPE")  # "A" | "B"
 if MACHINE_TYPE not in ("A", "B"):
     raise RuntimeError("MACHINE_TYPE must be A or B")
@@ -24,13 +26,9 @@ RABBITMQ_CONFIG: RabbitMQConfig = {
     "prefetch_count": int(os.getenv("RABBITMQ_PREFETCH_COUNT", 1))
 }
 
-PUBLISHING_QUEUES: Dict[LiteralString, LiteralString] = {
-    "piece_executed": "machine.piece_executed",
-}
-
-LISTENING_QUEUES: Dict[LiteralString, LiteralString] = {
-    "piece_created": f"machine.piece.{MACHINE_TYPE}",
-    "machine_cancel_piece" : "warehouse.machine_cancel_piece",
+LISTENING_QUEUES: Dict[str, LiteralString] = {
+    f"machine_{MACHINE_TYPE}_produce": f"machine.piece.create.{MACHINE_TYPE}",
+    "cancel_piece" : "machine.piece.cancel",
     "public_key": "client.public_key.machine",
 }
 

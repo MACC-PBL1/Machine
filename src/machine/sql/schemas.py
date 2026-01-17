@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from typing import (
     Optional, 
     List,
-    Tuple,
 )
 
 class Message(BaseModel):

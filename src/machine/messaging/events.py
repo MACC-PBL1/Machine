@@ -1,80 +1,57 @@
+from ..business_logic import get_machine
 from ..global_vars import (
+    MACHINE_TYPE,
+    LISTENING_QUEUES,
     PUBLIC_KEY,
-    LISTENING_QUEUES
 )
+from ..sql import (
+    get_task_by_piece,
+    Task,
+    update_task,
+)
+from chassis.consul import ConsulClient 
 from chassis.messaging import (
     MessageType,
     register_queue_handler
 )
 from chassis.sql import SessionLocal
-from chassis.consul import ConsulClient 
 import requests
 import logging
-from ..sql import mark_task_cancelled
-import os
 
 logger = logging.getLogger(__name__)
 
-MACHINE_TYPE = os.getenv("MACHINE_TYPE") 
-
-if MACHINE_TYPE not in ("A", "B"):
-    raise RuntimeError("MACHINE_TYPE must be 'A' or 'B'")
-
-@register_queue_handler(LISTENING_QUEUES["piece_created"])
-async def on_piece_created(message: MessageType) -> None:
-    from ..business_logic import get_machine
-
-    assert (piece_id := message.get("piece_id")) is not None, (
-        "'piece_id' field should be present."
-    )
-    assert (piece_type := message.get("piece_type")) is not None, (
-        "'piece_type' field should be present."
-    )
+@register_queue_handler(
+    queue=LISTENING_QUEUES[f"machine_{MACHINE_TYPE}_produce"],
+    exchange="machine",
+    exchange_type="topic",
+    routing_key=f"machine.piece.produce.{MACHINE_TYPE}"
+)
+async def piece_asked(message: MessageType) -> None:
+    assert (piece_id := message.get("piece_id")) is not None, "'piece_id' field should be present."
+    assert (piece_type := message.get("piece_type")) is not None, "'piece_type' field should be present."
 
     piece_id = int(piece_id)
 
     machine = await get_machine()
-
-    logger.info(
-        "[MACHINE-%s] Received piece %s",
-        MACHINE_TYPE,
-        piece_id,
-    )
 
     await machine.add_piece_to_queue(
         piece_id=piece_id,
         piece_type=piece_type,
     )
 
-
-@register_queue_handler(LISTENING_QUEUES["machine_cancel_piece"])
-async def on_machine_cancel_piece(message: MessageType) -> None:
-    """
-    Cancels a technical task by piece_id.
-    Best-effort: WORKING tasks may finish.
-    """
+@register_queue_handler(
+    LISTENING_QUEUES["cancel_piece"],
+    exchange="machine_cancel",
+    exchange_type="fanout",
+)
+async def cancel_piece(message: MessageType) -> None:
     assert (piece_id := message.get("piece_id")) is not None, "'piece_id' is required"
+
     piece_id = int(piece_id)
 
-    logger.warning(
-        "[EVENT:MACHINE:CANCEL_PIECE] - piece_id=%s",
-        piece_id,
-    )
-
     async with SessionLocal() as db:
-        task = await mark_task_cancelled(db, piece_id)
-
-    if task:
-        logger.info(
-            "[EVENT:MACHINE:CANCELLED] - piece_id=%s status=%s",
-            piece_id,
-            task.status,
-        )
-    else:
-        logger.info(
-            "[EVENT:MACHINE:CANCEL_SKIPPED] - No task found for piece_id=%s",
-            piece_id,
-        )
+        if (task := await get_task_by_piece(db, piece_id)) is not None and task.status == Task.STATUS_QUEUED:
+            assert (await update_task(db, task, status=Task.STATUS_CANCELLED))
 
 
 @register_queue_handler(

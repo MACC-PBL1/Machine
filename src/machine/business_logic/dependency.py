@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 MY_MACHINE: Optional[Machine] = None
 
-async def get_machine():
+async def get_machine() -> Machine:
     """Returns the machine object (creates it the first time its executed)."""
     logger.debug("[LOG:DEPENDENCY] - Getting machine")
     global MY_MACHINE

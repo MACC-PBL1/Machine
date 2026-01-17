@@ -1,15 +1,10 @@
 
-from .models import MachineTaskModel
+from .models import Task
 
 from .crud import (
     create_task,
     get_task_by_piece,
-    list_tasks,
-    list_tasks_by_status,
-    mark_task_working,
-    mark_task_done,
-    mark_task_failed,
-    mark_task_cancelled,
+    update_task,
 )
 
 from .schemas import (
@@ -21,16 +16,11 @@ from .schemas import (
 from typing import List
 
 __all__: List[str] = [
-    "MachineTaskModel",
+    "Task",
     "create_task",
     "get_task_by_piece",
-    "list_tasks",
-    "list_tasks_by_status",
-    "mark_task_working",
-    "mark_task_done",
-    "mark_task_failed",
-    "mark_task_cancelled",
     "MachineStatusResponse",
     "Message",
     "MachineTask",
+    "update_task"
 ]
