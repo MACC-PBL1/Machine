@@ -63,6 +63,8 @@ class Machine:
         self._status = self.STATUS_PROCESSING
         self._working_piece = piece_id
 
+        logger.debug(f"[LOG:MACHINE] - Piece started production: piece_id={piece_id}")
+
         Machine._notify_piece_processing(piece_id)
 
         async with self._session_factory() as db:
@@ -79,6 +81,8 @@ class Machine:
             assert (await update_task(db, task, status=Task.STATUS_PROCESSED)) is not None, "Update should happen"
 
         Machine._publish_produced_piece(piece_id)
+
+        logger.debug(f"[LOG:MACHINE] - Piece ended production: piece_id={piece_id}")
 
         self._working_piece = None
         self._status = self.STATUS_IDLE
@@ -112,6 +116,8 @@ class Machine:
             )
 
         await self._queue.put(piece_id)
+        
+        logger.debug(f"[LOG:MACHINE] - Piece added to queue: piece_id={piece_id}")
 
     @classmethod
     async def create(

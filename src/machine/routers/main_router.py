@@ -38,7 +38,6 @@ async def health_check():
         )
 
     container_id = socket.gethostname()
-    logger.debug(f"[LOG:REST] - GET '/health' served by {container_id}")
     return {
         "detail": f"OK - Served by {container_id}",
         "system_metrics": get_system_metrics()

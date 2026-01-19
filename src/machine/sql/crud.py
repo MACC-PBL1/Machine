@@ -58,6 +58,8 @@ async def update_task(
     if not updates:
         return task
     
+    id = task.id
+
     await update_elements_statement_result(
         db=db,
         stmt=(
@@ -66,4 +68,4 @@ async def update_task(
                 .values(**updates)
         )
     )
-    return await get_element_by_id(db, Task, task.id)
+    return await get_element_by_id(db, Task, id)

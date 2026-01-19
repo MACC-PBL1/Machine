@@ -32,6 +32,8 @@ async def piece_asked(message: MessageType) -> None:
 
     piece_id = int(piece_id)
 
+    logger.info(f"[EVENT:MACHINE-{MACHINE_TYPE}:PIECES_REQUESTED] - piece_id={piece_id}")
+
     machine = await get_machine()
 
     await machine.add_piece_to_queue(
@@ -51,7 +53,7 @@ async def cancel_piece(message: MessageType) -> None:
 
     async with SessionLocal() as db:
         if (task := await get_task_by_piece(db, piece_id)) is not None and task.status == Task.STATUS_QUEUED:
-            assert (await update_task(db, task, status=Task.STATUS_CANCELLED))
+            assert (await update_task(db, task, status=Task.STATUS_CANCELLED)) is not None
 
 
 @register_queue_handler(
