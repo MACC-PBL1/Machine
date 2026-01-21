@@ -51,10 +51,8 @@ async def cancel_piece(message: MessageType) -> None:
 
     piece_id = int(piece_id)
 
-    async with SessionLocal() as db:
-        if (task := await get_task_by_piece(db, piece_id)) is not None and task.status == Task.STATUS_QUEUED:
-            assert (await update_task(db, task, status=Task.STATUS_CANCELLED)) is not None
-
+    machine = await get_machine()
+    await machine.cancel_piece(piece_id)
 
 @register_queue_handler(
     queue=LISTENING_QUEUES["public_key"],

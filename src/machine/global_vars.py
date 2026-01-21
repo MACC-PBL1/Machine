@@ -6,6 +6,7 @@ from typing import (
     Optional,
 )
 import os
+import socket
 
 # Machine type #####################################################################################
 MACHINE_TYPE = os.getenv("MACHINE_TYPE")  # "A" | "B"
@@ -26,10 +27,10 @@ RABBITMQ_CONFIG: RabbitMQConfig = {
     "prefetch_count": int(os.getenv("RABBITMQ_PREFETCH_COUNT", 1))
 }
 
-LISTENING_QUEUES: Dict[str, LiteralString] = {
+LISTENING_QUEUES: Dict[str, str] = {
     f"machine_{MACHINE_TYPE}_produce": f"machine.piece.create.{MACHINE_TYPE}",
-    "cancel_piece" : "machine.piece.cancel",
-    "public_key": "client.public_key.machine",
+    "cancel_piece" : f"machine.{socket.gethostname()}.piece.cancel",
+    "public_key": f"client.public_key.machine.{socket.gethostname()}",
 }
 
 PUBLIC_KEY: Dict[str, Optional[str]] = {"key": None}

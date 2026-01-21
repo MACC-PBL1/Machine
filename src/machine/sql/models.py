@@ -19,5 +19,5 @@ class Task(BaseModel):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     piece_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    piece_type: Mapped[str] = mapped_column(String(1), nullable=False)
+    machine_name: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default=STATUS_QUEUED)

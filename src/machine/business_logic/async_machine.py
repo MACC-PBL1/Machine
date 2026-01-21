@@ -5,10 +5,12 @@ from ..global_vars import (
 from ..sql.crud import (
     create_task,
     get_task_by_piece,
+    get_next_queued_task,
     update_task,
 )
 from ..sql.models import Task
 from chassis.messaging import RabbitMQPublisher
+from chassis.sql import SessionLocal
 from random import randint
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -17,18 +19,19 @@ from sqlalchemy.ext.asyncio import (
 from typing import Optional
 import asyncio
 import logging
+import socket
 
 logger = logging.getLogger(__name__)
 
 class Machine:
     STATUS_IDLE = "Idle"
     STATUS_PROCESSING = "Processing"
+    MACHINE_NAME = socket.gethostname()
 
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
-        self._queue: asyncio.Queue[int] = asyncio.Queue()
         self._session_factory = session_factory
         self._status = self.STATUS_IDLE
         self._stop = False
@@ -36,14 +39,20 @@ class Machine:
 
     async def _manufacturing_coroutine(self) -> None:
         while not self._stop:
-            piece_id = await self._queue.get()
+            # TODO: KAntzelatzerakoan queuetik kendu eta beti irakurri datu basetik zein task dauden egiteko.
+            async with self._session_factory() as db:
+                task = await get_next_queued_task(db, Machine.MACHINE_NAME)
+                if task is None:
+                    await asyncio.sleep(1)
+                    continue
+                
+                piece_id = task.piece_id
 
             async with self._session_factory() as db:
                 assert (task := await get_task_by_piece(db, piece_id)) is not None, "Task should exist"
                 assert task.status == Task.STATUS_QUEUED, "The task should be queued"
 
             await self._produce_piece(piece_id)
-            self._queue.task_done()
 
     @staticmethod
     def _notify_piece_processing(piece_id: int) -> None:
@@ -112,12 +121,17 @@ class Machine:
             _ = await create_task(
                 db=db,
                 piece_id=piece_id,
-                piece_type=piece_type,
+                machine_name=Machine.MACHINE_NAME,
             )
 
-        await self._queue.put(piece_id)
-        
         logger.debug(f"[LOG:MACHINE] - Piece added to queue: piece_id={piece_id}")
+
+    async def cancel_piece(self, piece_id: int) -> None:
+        async with SessionLocal() as db:
+            if (task := await get_task_by_piece(db, piece_id)) is not None and task.status == Task.STATUS_QUEUED:
+                if task.machine_name != Machine.MACHINE_NAME:
+                    return
+                assert (await update_task(db, task, status=Task.STATUS_CANCELLED)) is not None
 
     @classmethod
     async def create(
@@ -127,6 +141,3 @@ class Machine:
         self = cls(session_factory)
         asyncio.create_task(self._manufacturing_coroutine())
         return self
-
-    async def list_queued_pieces(self) -> list[int]:
-        return list(self._queue._queue) # type: ignore

@@ -11,10 +11,7 @@ from sqlalchemy import (
     select,
     update,
 )
-from typing import (
-    List,
-    Optional,
-)
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def create_task(
     db: AsyncSession,
     piece_id: int,
-    piece_type: str,
+    machine_name: str,
 ) -> Task:
     existing = await get_task_by_piece(db, piece_id)
     if existing:
@@ -30,13 +27,25 @@ async def create_task(
 
     task = Task(
         piece_id=piece_id,
-        piece_type=piece_type,
+        machine_name=machine_name,
         status=Task.STATUS_QUEUED,
     )
     db.add(task)
     await db.commit()
     await db.refresh(task)
     return task
+
+async def get_next_queued_task(db: AsyncSession, machine_name: str) -> Optional[Task]:
+    return await get_element_statement_result(
+        db=db,
+        stmt=(
+            select(Task)
+                .where(Task.machine_name == machine_name)
+                .where(Task.status == Task.STATUS_QUEUED)
+                .order_by(Task.piece_id)
+                .limit(1)
+        )
+    )
 
 async def get_task_by_piece(
     db: AsyncSession,
