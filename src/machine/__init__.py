@@ -64,7 +64,7 @@ async def lifespan(__app: FastAPI):
             logger.info("[LOG:MACHINE] - Registering service to Consul...")
             try:
                 CONSUL_CLIENT.register_service(
-                    service_name=f"machine_{MACHINE_TYPE}",
+                    service_name=f"machine",
                     ec2_address=os.getenv("HOST_IP", socket.gethostbyname(socket.gethostname())),
                     service_port=int(os.getenv("HOST_PORT", 8000)),
                 )
